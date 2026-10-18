@@ -1,0 +1,1745 @@
+<title>AI Requirements Quality Gate · RAG</title>
+<!-- 법령 근거 조회 API 주소. 서버를 따로 배포하면 그 주소(https://...)로 바꾸세요. -->
+<meta name="rag-endpoint" content="/api/review">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Single light theme (switched from dark on 2026-09-29: the page is a long review document —
+     requirements, ER questions, tables — so light surfaces read better). Brand hues the user chose
+     (accent #4880FF, Value #4AD991, Risk #FF9066, [값] #FEC53D) are kept as fills/borders; *-ink
+     tokens are darker shades of the same hues for text on light backgrounds. */
+  :root {
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --surface-2: #f2f4f7;
+    --ink: #202632;
+    --ink-dim: #667085;
+    --border: #dce2ea;
+    --accent: #4880ff;
+    --accent-ink: #2f5fd0;
+    --accent-soft: #e8efff;
+    --critical: #d92d20;
+    --critical-soft: #fee4e2;
+    --high: #b45309;
+    --high-soft: #fef0dc;
+    --low: #667085;
+    --low-soft: #f2f4f7;
+    --value: #4ad991;
+    --value-ink: #0e7a4b;
+    --value-soft: #ddf7ea;
+    --risk: #ff9066;
+    --risk-ink: #b8431a;
+    --risk-soft: #ffe9df;
+    --gold: #fec53d;
+    --gold-ink: #7a5200;
+    --gold-soft: #fff1c7;
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px));
+    line-height: 1.6;
+  }
+  .mono { font-family: 'IBM Plex Mono', 'Consolas', monospace; }
+  a { color: var(--accent-ink); }
+  button, select, input { font-family: inherit; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding-block: 24px 72px; }
+
+  /* ---- nav ---- */
+  .topnav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+  .brand-mark { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+  .brand-sub { font-size: 13px; color: var(--ink); }
+  .nav-actions { display: flex; gap: 8px; }
+  .btn {
+    font-size: 14.5px; border-radius: 8px; padding: 8px 14px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: .92; color: #fff; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+
+  /* ---- hero ---- */
+  .hero { margin-bottom: 34px; }
+  .eyebrow { font-size: 13.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 10px; }
+  h1 { font-size: clamp(28px, 4.4vw, 40px); margin: 0 0 12px; letter-spacing: -0.01em; }
+  .hero p.lede { color: var(--ink); max-width: 68ch; margin: 0 0 20px; font-size: 17px; }
+  @media (min-width: 1000px) { .hero h1 { white-space: nowrap; max-width: none; } .hero p.lede { max-width: none; } }
+
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .flow-step {
+    font-size: 14.5px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px; padding: 7px 13px; white-space: nowrap;
+  }
+  .flow-arrow { color: var(--ink); font-size: 16px; }
+
+  .principle {
+    font-size: 15px; color: var(--ink); border-left: 3px solid var(--accent); padding: 8px 0 8px 12px;
+  }
+  .principle code { font-family: inherit; background: var(--surface-2); border-radius: 4px; padding: 1px 6px; font-size: 1em; color: var(--ink); }
+
+  /* ---- case cards ---- */
+  .section-title { font-size: 15.5px; font-weight: 600; margin: 0 0 4px; }
+  .section-sub { font-size: 14.5px; color: var(--ink); margin: 0 0 16px; }
+  .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 680px) { .card-grid { grid-template-columns: 1fr; } }
+
+  .case-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .15s ease, transform .15s ease; box-shadow: 0 1px 3px rgba(16,24,40,.08);
+    color: var(--ink); font-family: inherit;
+  }
+  .case-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .case-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .case-type-badge {
+    display: inline-block; align-self: flex-start; font-size: 12px;
+    font-weight: 600; letter-spacing: .04em; border-radius: 4px; padding: 3px 10px;
+  }
+  .case-type-value { background: var(--value-soft); color: var(--value-ink); }
+  .case-type-risk { background: var(--risk-soft); color: var(--risk-ink); }
+  .case-title { font-size: 18px; font-weight: 600; margin: 0; }
+  .case-row { font-size: 14.5px; }
+  .case-row .label {
+    font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink); display: flex; align-items: center; gap: 5px; margin-bottom: 3px;
+  }
+  .case-row .val { color: var(--ink); }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 12px; background: var(--surface-2); color: var(--ink);
+    border-radius: 999px; padding: 3px 9px;
+  }
+  .card-cta { font-size: 13.5px; color: var(--accent-ink); margin-top: 2px; }
+
+  /* ---- priority badges ---- */
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    display: inline-block; font-size: 12px; font-weight: 600;
+    border-radius: 4px; padding: 2px 9px; letter-spacing: .02em; white-space: nowrap;
+  }
+  .badge-p0 { background: var(--critical-soft); color: var(--critical); }
+  .badge-p1 { background: var(--high-soft); color: var(--high); }
+  .badge-p2 { background: var(--low-soft); color: var(--low); }
+
+  .priority-legend {
+    display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 22px; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .legend-row { display: flex; gap: 9px; align-items: flex-start; flex: 1 1 220px; min-width: 200px; }
+  .legend-row .legend-text b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+  .legend-row .legend-text span { color: var(--ink); font-size: 13.5px; }
+
+  /* ---- detail page ---- */
+  .case-header { margin-bottom: 30px; }
+  .case-header h2 { font-size: 27px; margin: 6px 0 14px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin-bottom: 14px; }
+  @media (max-width: 600px) { .meta-grid { grid-template-columns: 1fr; } }
+  .meta-item .label { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 3px; }
+  .meta-item .val { font-size: 15.5px; }
+  .meta-item .val.placeholder { color: var(--ink-dim); font-style: italic; }
+  .summary-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; font-size: 15.5px; margin-bottom: 6px; }
+
+  .req-block { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 18px; overflow: hidden; }
+  .req-block > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .req-block > summary::-webkit-details-marker { display: none; }
+  .req-block[open] { border-color: var(--accent); }
+  .req-num { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--ink); }
+  .req-title { font-size: 16.5px; margin-top: 3px; }
+  .req-caret { color: var(--ink); flex: none; transition: transform .15s ease; }
+  .req-block[open] .req-caret { transform: rotate(90deg); }
+  .req-body { padding: 0 18px 20px; border-top: 1px solid var(--border); }
+
+  .stage { padding-top: 20px; }
+  .stage-num { font-size: 12.5px; color: var(--accent-ink); letter-spacing: .04em; text-transform: uppercase; margin: 0 0 8px; }
+  .stage-note { font-size: 13px; color: var(--ink); font-style: italic; margin: 4px 0 0; }
+
+  .virtual-req { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; font-size: 16px; }
+
+  .subcard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .subcard-full { margin-top: 10px; }
+  @media (max-width: 760px) { .subcard-grid { grid-template-columns: 1fr; } }
+  .subcard { border: 1px solid var(--border); border-radius: 8px; padding: 11px 12px; }
+  .subcard h4 { font-size: 13px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink); margin: 0 0 8px; }
+  .subcard ul { margin: 0; padding-left: 16px; font-size: 15px; }
+  .subcard li { margin-bottom: 7px; }
+  .subcard li .badge { margin-right: 5px; }
+  .subcard .empty { color: var(--ink); font-style: italic; font-size: 14.5px; }
+  .basis { display: block; font-size: 12.5px; color: var(--ink); margin-top: 2px; }
+
+  .before-after { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .ba-block { border-radius: 8px; padding: 12px 14px; font-size: 15.5px; }
+  .ba-before { background: var(--surface-2); }
+  .ba-after { background: var(--accent-soft); border: 1px solid var(--accent); }
+  .ba-label { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; display: block; }
+  .ba-arrow { text-align: center; color: var(--ink); font-size: 15px; }
+
+  .ph { border-radius: 4px; padding: 0 3px; }
+  .ph-value { font-family: 'IBM Plex Mono', monospace; background: var(--gold-soft); color: var(--gold-ink); font-size: 1em; }
+  .ph-generic { font-family: 'IBM Plex Mono', monospace; background: var(--gold-soft); color: var(--gold-ink); font-size: 1em; }
+  sup.ref-tag { color: var(--accent-ink); font-size: 12px; margin-left: 1px; }
+
+  .ref-list { margin-top: 10px; font-size: 13.5px; color: var(--ink); }
+  .ref-list li { margin-bottom: 5px; }
+  .ref-list b { color: var(--ink); font-weight: 600; }
+
+  .ac-list { margin: 0; padding-left: 0; list-style: none; }
+  .ac-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 15px; }
+  .ac-item .vm { color: var(--ink); font-size: 13.5px; margin-top: 4px; }
+
+  /* ---- review closure (human-in-the-loop) ---- */
+  .req-progress { font-size: 12.5px; color: var(--ink); background: var(--surface-2); border-radius: 999px; padding: 2px 10px; margin-left: 8px; white-space: nowrap; }
+  .req-progress.done { background: var(--value-soft); color: var(--value-ink); }
+  .review-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 18px;
+    background: var(--surface-2); border-radius: 8px; padding: 10px 14px; font-size: 14.5px;
+  }
+  .review-bar b { font-weight: 600; }
+  .review-bar .btn { margin-left: auto; padding: 4px 11px; font-size: 13px; }
+  .review-note { font-size: 13.5px; color: var(--ink); margin: 0 0 10px; }
+
+  .review-list { list-style: none; margin: 0; padding: 0; font-size: 15px; }
+  .review-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .review-list li:last-child { border-bottom: 0; }
+  .review-list li.is-excluded .item-text > span:first-child { text-decoration: line-through; opacity: .5; }
+  .review-list li.is-excluded .why-line { opacity: .75; }
+  .ac-item.is-excluded .item-text { text-decoration: line-through; opacity: .5; }
+  .ac-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .decide { display: inline-flex; gap: 4px; flex: none; }
+  .decide button {
+    font-size: 12.5px; border: 1px solid var(--border); background: transparent;
+    color: var(--ink); border-radius: 999px; padding: 2px 10px; cursor: pointer;
+  }
+  .decide button:hover { border-color: var(--accent); }
+  .decide button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .decide button.d-adopt[aria-pressed="true"] { background: var(--value-soft); color: var(--value-ink); border-color: var(--value); }
+  .decide button.d-exclude[aria-pressed="true"] { background: var(--critical-soft); color: var(--critical); border-color: var(--critical); }
+
+  .er-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .er-item.st-closed { border-color: var(--value); }
+  .er-item.st-out { opacity: .6; }
+  .er-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 15px; }
+  .er-status {
+    flex: none; font-size: 13px; border-radius: 999px; padding: 3px 8px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); cursor: pointer;
+  }
+  .er-status:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .er-status.st-open { color: var(--gold-ink); border-color: var(--gold); }
+  .er-status.st-review { color: var(--accent-ink); border-color: var(--accent); }
+  .er-status.st-closed { color: var(--value-ink); border-color: var(--value); }
+  .er-status.st-out { color: var(--ink-dim); }
+  .ph-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 6px 10px; margin-top: 9px; align-items: center; }
+  @media (max-width: 600px) { .ph-fields { grid-template-columns: 1fr; } }
+  .ph-fields .ph { justify-self: start; font-size: 14px; }
+  .ph-input {
+    width: 100%; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--ink);
+    font-family: inherit; font-size: 15px; padding: 6px 9px;
+  }
+  .ph-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .er-extra-title { font-size: 13px; color: var(--ink); margin: 14px 0 4px; }
+  .ph-filled { background: var(--value-soft); color: var(--value-ink); }
+  .ph-na { font-family: 'IBM Plex Mono', monospace; background: var(--surface-2); color: var(--ink-dim); }
+  .ph-input:disabled { opacity: .5; cursor: not-allowed; }
+  .ph-draft { background: var(--accent-soft); color: var(--accent-ink); }
+  .after-state { font-size: 12px; border-radius: 999px; padding: 1px 8px; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+  .after-state.open { background: var(--gold-soft); color: var(--gold-ink); }
+  .after-state.done { background: var(--value-soft); color: var(--value-ink); }
+
+  /* ---- traceability ---- */
+  .tr-id { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent-soft); border-radius: 4px; padding: 1px 6px; margin-right: 6px; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.trace { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 640px; }
+  table.trace th { text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; padding: 9px 12px; background: var(--surface-2); color: var(--ink); white-space: nowrap; }
+  table.trace td { padding: 9px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+  table.trace td .cell-item { display: block; margin-bottom: 6px; }
+  table.trace td .cell-item:last-child { margin-bottom: 0; }
+  table.trace .is-excluded { text-decoration: line-through; opacity: .5; }
+  .tr-state { font-size: 12px; border-radius: 999px; padding: 1px 8px; margin-left: 4px; border: 1px solid var(--border); white-space: nowrap; }
+  .tr-state.st-open { color: var(--gold-ink); border-color: var(--gold); }
+  .tr-state.st-review { color: var(--accent-ink); border-color: var(--accent); }
+  .tr-state.st-closed { color: var(--value-ink); border-color: var(--value); }
+  .tr-state.st-out { color: var(--ink-dim); }
+  .tr-warn { color: var(--gold-ink); font-size: 14px; }
+  .trace-warns { margin: 10px 0 0; padding: 10px 14px; background: var(--gold-soft); border-radius: 8px; font-size: 14px; color: var(--gold-ink); }
+  .trace-warns ul { margin: 4px 0 0; padding-left: 18px; }
+  .trace-ok { margin: 10px 0 0; font-size: 14px; color: var(--value-ink); }
+  .matrix-link { margin-top: 4px; }
+  table.matrix td.num, table.matrix th.num { text-align: center; white-space: nowrap; }
+  table.matrix tr.row-link { cursor: pointer; }
+  table.matrix tr.row-link:hover td { background: var(--surface-2); }
+  table.matrix .m-title { font-size: 14.5px; }
+  table.matrix .m-case { font-size: 13px; color: var(--ink); }
+
+  /* ---- similar requirements ---- */
+  .sim-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .sim-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sim-topic { font-weight: 600; font-size: 15.5px; }
+  .sim-head .btn { padding: 4px 11px; font-size: 13px; }
+  .sim-req { margin: 8px 0 6px; font-size: 14.5px; }
+  .sim-pairs { margin: 0; padding-left: 0; list-style: none; font-size: 14px; }
+  .sim-pairs li { padding: 5px 0; border-top: 1px solid var(--border); }
+  .sim-arrow { color: var(--ink); margin-right: 6px; }
+  .sim-vals { display: block; margin-top: 3px; color: var(--value-ink); font-size: 13.5px; }
+
+  /* ---- collapsed detail section ---- */
+  .more-details { margin-top: 22px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .more-details > summary { cursor: pointer; padding: 11px 14px; font-weight: 600; font-size: 15px; list-style: none; }
+  .more-details > summary::-webkit-details-marker { display: none; }
+  .more-details > summary::before { content: '▸'; display: inline-block; margin-right: 8px; transition: transform .15s ease; }
+  .more-details[open] > summary::before { transform: rotate(90deg); }
+  .more-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .more-hint { font-weight: 400; font-size: 13.5px; color: var(--ink-dim); margin-left: 6px; }
+  .more-body { padding: 0 14px 18px; border-top: 1px solid var(--border); }
+
+  /* ---- roadmap ---- */
+  .roadmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 760px) { .roadmap { grid-template-columns: 1fr; } }
+  .roadmap-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .roadmap-col h3 { font-size: 15.5px; margin: 8px 0 8px; }
+  .roadmap-col ul { margin: 0; padding-left: 18px; font-size: 14.5px; }
+  .roadmap-col li { margin-bottom: 6px; }
+  .stage-chip { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
+  .stage-now { background: var(--value-soft); color: var(--value-ink); }
+  .stage-next { background: var(--accent-soft); color: var(--accent-ink); }
+  .stage-future { background: var(--surface-2); color: var(--ink); }
+
+
+  /* ---- evidence basis / product classification / evaluation ---- */
+  .nav-actions { flex-wrap: wrap; }
+  .nav-actions .btn { padding: 6px 12px; font-size: 13.5px; }
+  .nav-actions .btn.is-current { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .bchip { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 7px; white-space: nowrap; border: 1px solid transparent; }
+  .b-S { background: var(--value-soft); color: var(--value-ink); }
+  .b-I { background: var(--gold-soft); color: var(--gold-ink); }
+  .b-E { background: var(--accent-soft); color: var(--accent-ink); }
+  .why-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; font-size: 13px; color: var(--ink-dim); }
+  .why-line b { color: var(--ink); font-weight: 600; }
+  .hstate { font-size: 12px; border-radius: 999px; padding: 0 8px; border: 1px dashed var(--gold); color: var(--gold-ink); white-space: nowrap; }
+  .hstate.ok { border: 1px solid var(--value); color: var(--value-ink); }
+  .hstate.no { border: 1px solid var(--border); color: var(--ink-dim); }
+  .basis-sum { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; margin: -2px 0 8px; color: var(--ink-dim); }
+  .item-text { flex: 1 1 auto; min-width: 0; }
+  .decide { flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 46%; }
+  .why-select { font-size: 12.5px; border: 1px solid var(--critical); color: var(--critical); background: var(--surface); border-radius: 999px; padding: 1px 6px; }
+  .why-select.unset { border-style: dashed; }
+  @media (max-width: 600px) { .review-list li, .ac-item { flex-direction: column; } .decide { max-width: none; justify-content: flex-start; } }
+
+  .gate { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .gate.pass { border-color: var(--value); background: #f6fdf9; }
+  .gate-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; font-size: 15px; }
+  .gate ul { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+  .gate li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; }
+  .gate li .ck { flex: none; width: 16px; text-align: center; font-weight: 700; }
+  .gate li.ok .ck { color: var(--value-ink); }
+  .gate li.wait .ck { color: var(--gold-ink); }
+  .policy { margin: 10px 0 0; padding: 9px 12px; background: var(--surface-2); border-radius: 8px; font-size: 13px; }
+  .policy ul { margin: 4px 0 0; padding-left: 18px; }
+
+  .pc-list { list-style: none; margin: 0; padding: 0; }
+  .pc-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; flex-wrap: wrap; }
+  .pc-item:last-child { border-bottom: 0; }
+  .pc-label { flex: 1 1 260px; }
+  .pc-ai { display: block; font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex: none; }
+  .seg button { font-size: 12.5px; border: 0; background: transparent; padding: 3px 10px; cursor: pointer; color: var(--ink); position: relative; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.is-ai::after { content: 'AI'; font-size: 9.5px; font-weight: 700; color: var(--accent-ink); margin-left: 3px; vertical-align: super; }
+  .seg button[aria-pressed="true"] { color: #fff; }
+  .seg button.k-common[aria-pressed="true"] { background: var(--accent); }
+  .seg button.k-config[aria-pressed="true"] { background: #b07a00; }
+  .seg button.k-custom[aria-pressed="true"] { background: var(--risk-ink); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .kchip { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 7px; white-space: nowrap; }
+  .k-common-c { background: var(--accent-soft); color: var(--accent-ink); }
+  .k-config-c { background: var(--gold-soft); color: var(--gold-ink); }
+  .k-custom-c { background: var(--risk-soft); color: var(--risk-ink); }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .kpi .k-label { font-size: 12.5px; color: var(--ink-dim); }
+  .kpi .k-val { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .kpi .k-sub { font-size: 12.5px; color: var(--ink-dim); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+  .panel h3 { font-size: 15.5px; margin: 0 0 4px; }
+  .panel .section-sub { margin-bottom: 12px; }
+  .bar-row { display: grid; grid-template-columns: 150px 1fr 92px; gap: 10px; align-items: center; font-size: 14px; padding: 5px 0; }
+  @media (max-width: 600px) { .bar-row { grid-template-columns: 1fr 70px; } .bar-row .bar-track { grid-column: 1 / -1; grid-row: 2; } }
+  .bar-track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; display: flex; }
+  .bar-fill { height: 100%; }
+  .bar-fill.f-adopt { background: var(--value); }
+  .bar-fill.f-exclude { background: #f97066; }
+  .bar-fill.f-main { background: var(--accent); }
+  .bar-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .legend-inline { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-dim); margin-bottom: 6px; }
+  .legend-inline i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .empty-state { margin-bottom: 14px; padding: 14px; border: 1px dashed var(--border); border-radius: 8px; color: var(--ink-dim); font-size: 14px; }
+  .rule-list { margin: 0; padding-left: 18px; font-size: 14.5px; }
+  .rule-list li { margin-bottom: 8px; }
+  .rule-list .from { color: var(--ink-dim); font-size: 13px; display: block; }
+  .snap textarea { width: 100%; min-height: 110px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--bg); color: var(--ink); }
+  .snap .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .snap-msg { font-size: 13px; color: var(--value-ink); }
+
+  .board { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .board { grid-template-columns: 1fr; } }
+  .board-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .board-col h3 { font-size: 15px; margin: 6px 0 10px; }
+  .grp { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .grp.roadmap-cand { border-color: var(--accent); background: #f7f9ff; }
+  .grp-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .grp-name { font-weight: 600; font-size: 14.5px; }
+  .grp-count { font-size: 12.5px; color: var(--ink-dim); white-space: nowrap; }
+  .grp ul { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 13px; }
+  .grp li { padding: 2px 0; }
+  .grp li .rid { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--accent-ink); margin-right: 5px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); }
+  .flat-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+  .flat-list li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .flat-list li:last-child { border-bottom: 0; }
+  .flat-list .rid { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--accent-ink); margin-right: 5px; cursor: pointer; }
+  .moved { font-size: 11.5px; color: var(--ink-dim); margin-left: 4px; }
+
+  .scope-line { font-size: 14px; margin: -6px 0 16px; color: var(--ink-dim); }
+  .scope-line b { color: var(--ink); }
+  .panel.focus { border-color: var(--gold); background: #fffdf5; }
+  .focus-q { font-size: 18px !important; margin-bottom: 14px !important; }
+  .focus-grid { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 14px; align-items: start; }
+  @media (max-width: 680px) { .focus-grid { grid-template-columns: 1fr 1fr; } .focus-cmp { grid-column: 1 / -1; } }
+  .focus-big { font-size: 40px; font-weight: 600; line-height: 1.1; color: var(--gold-ink); font-variant-numeric: tabular-nums; }
+  .focus-big.muted { color: var(--critical); }
+  .focus-cmp > div { font-size: 14px; margin-top: 4px; }
+  .rchip { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 0 7px; white-space: nowrap; border: 1px solid; background: var(--surface); }
+  .r-P { color: #6941c6; border-color: #d6bbfb; }
+  .r-E { color: var(--accent-ink); border-color: #b2c8ff; }
+  .r-B { color: #475467; border-color: #d0d5dd; }
+  .b-S { background: var(--value-soft); color: var(--value-ink); }
+  .axis-legend { align-items: flex-start; }
+  .axis-title { flex: 1 1 100%; font-size: 13px; font-weight: 600; }
+  .axis-title span { font-weight: 400; color: var(--ink-dim); margin-left: 6px; }
+  .sum-k { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .criteria { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; margin-bottom: 6px; }
+  .criteria b { margin-right: 4px; }
+  .c-adopt { color: var(--value-ink); }
+  .c-exclude { color: var(--critical); }
+  .c-note { color: var(--ink-dim); }
+  .route-card h4 { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; }
+  .r-card-P { border-color: #e9d7fe; }
+  .route-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 680px) { .route-tiles { grid-template-columns: 1fr; } }
+  .route-tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .route-num { font-size: 28px; font-weight: 600; line-height: 1.2; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .route-num span { font-size: 14px; font-weight: 400; margin-left: 2px; color: var(--ink-dim); }
+  .added-tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--gold-ink); background: var(--gold-soft); border-radius: 4px; padding: 0 6px; margin-left: 4px; }
+  .gate-follow { margin: 8px 0 0; font-size: 13px; color: var(--ink-dim); border-top: 1px dashed var(--border); padding-top: 8px; }
+  table.trace td .rchip { margin-top: 4px; }
+  .subtitle { font-size: 18px; font-weight: 500; margin: -4px 0 12px; color: var(--ink); }
+  .why-grid { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; margin: 0 0 20px; }
+  @media (max-width: 860px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; }
+  .why-card p { margin: 0; }
+  .why-card .why-k { font-size: 12.5px; font-weight: 700; letter-spacing: .04em; color: var(--accent-ink); margin-bottom: 4px; text-transform: uppercase; }
+  .exp-tag { display: inline-block; font-size: 10.5px; font-weight: 600; color: var(--ink-dim); border: 1px dashed var(--border); border-radius: 4px; padding: 0 5px; margin-left: 4px; text-transform: none; letter-spacing: 0; vertical-align: 1px; }
+  .rag-card { border-color: #c7d7fe; background: #fbfcff; }
+  .rag-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .rag-head h4 { margin: 0 !important; display: flex; align-items: center; gap: 6px; }
+  .rag-head .btn { padding: 5px 12px; font-size: 13px; }
+  .rag-src { font-size: 11px; font-weight: 600; color: var(--accent-ink); background: var(--accent-soft); border-radius: 4px; padding: 0 6px; text-transform: none; letter-spacing: 0; }
+  .rag-loading { font-size: 14px; color: var(--accent-ink); }
+  .rag-error { font-size: 14px; color: var(--critical); }
+  .rag-text { white-space: pre-wrap; font-size: 14.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-height: 420px; overflow: auto; }
+  .rag-doc { font-size: 14.5px; margin-bottom: 8px; }
+  .rag-k { display: block; font-size: 12px; font-weight: 600; color: var(--ink-dim); margin-bottom: 2px; }
+  .rag-sec { margin-bottom: 8px; font-size: 14.5px; }
+  .rag-sec ul { margin: 0; padding-left: 0; list-style: none; }
+  .rag-ok li::before { content: '✓ '; color: var(--value-ink); font-weight: 700; }
+  .rag-warn li::before { content: '⚠ '; color: var(--gold-ink); }
+  .rag-saved { font-size: 13px; color: var(--ink-dim); margin: 0 0 6px; }
+  .rag-saved-lead { font-size: 13.5px; margin: 0 0 4px; color: var(--ink); }
+  .rag-badge { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--value-ink); background: var(--value-soft); border-radius: 4px; padding: 0 7px; margin-right: 4px; }
+  .badge-row { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; align-self: flex-start; }
+  .rag-tag { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--accent-ink); background: var(--surface); border: 1px solid #b2c8ff; border-radius: 4px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
+  .badge-row .rag-tag { margin-left: 0; }
+  .rag-scope { background: var(--surface); border: 1px solid #c7d7fe; border-radius: 12px; padding: 12px 14px; margin: 0 0 18px; font-size: 14.5px; }
+  .rag-scope .why-k { margin: 0 0 4px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; color: var(--accent-ink); }
+  .rag-scope ul { margin: 0; padding-left: 18px; }
+  .rag-scope li { margin-bottom: 3px; }
+  footer.page-note {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
+    font-size: 13.5px; color: var(--ink); max-width: 74ch;
+  }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script id="rag-snapshot" type="application/json">{"1-1": {"text": "검토 결과: 부분 충족\n\n근거(참고문서):\n- “작업에 종사하고 있는 근로자 또는 그 근로자를 감시하는 사람은 이상을 발견하면 즉시 로봇의 운전을 정지시키기 위한 조치를 할 것”(조항 2)\n- “이상을 발견하여 로봇의 운전을 정지시킨 후 이를 재가동시킬 경우의 조치”(조항 마) — 재가동 절차 마련 필요성 시사(세부 내용은 미제시)\n- “작업 중에는 기동스위치 등에 작업 중 표시를 하는 등, 작업자가 아닌 사람이 스위치 등을 조작할 수 없도록 필요한 조치를 할 것”(조항 3)\n\n해석:\n- 비상상황이라는 용어가 직접적으로 명시되지는 않았으나, “이상 발견 시 즉시 정지 조치” 의무가 있어 비상 시 운전을 중단하는 절차의 필요성과 취지가 부합합니다.\n- 다만 “수동으로”라는 방식(예: 수동 스위치/버튼 등)은 참고문서에서 확인할 수 없음.\n- 정지 후 재가동에 관한 조치가 필요하다는 점은 명시되어 있으나, 구체 내용은 참고문서에서 확인할 수 없음.\n\n추가 확인 필요:\n- “수동” 중단 방식의 구체 수단 및 절차: 참고문서에서 확인할 수 없음.", "at": "2026. 10. 18. 오후 4:39:45"}, "2-1": {"text": "참고문서에서 확인할 수 없음\n\n근거: 참고문서는\n- 로봇의 조작방법 및 순서\n- 이상 발견 후 정지 및 재가동 시 조치\n- 예기치 못한 작동 또는 오조작 위험 방지 조치\n만을 언급하며, 원격 조종 상태나 신호등 규정 준수에 대한 내용은 없습니다.", "at": "2026. 10. 18. 오후 4:40:26"}, "v8-1": {"text": "검토 결과: 참고문서에서 확인할 수 없음\n\n관련하여 참고문서에 따른 필수 조치:\n- 작업자 또는 감시자는 이상을 발견하면 즉시 로봇 운전을 정지시키기 위한 조치를 할 것\n- 로봇의 예기치 못한 작동 또는 오조작에 의한 위험을 방지하기 위한 필요한 조치를 마련할 것\n- 이상을 발견하여 로봇을 정지시킨 후 재가동시키는 경우의 조치를 마련할 것", "at": "2026. 10. 18. 오후 4:41:04"}, "3-1": {"text": "아래 사항 외에 “로봇 여러 대 동시 작업 시 충돌 예방·중지 기준”에 관한 구체 기준은 참고문서에서 확인할 수 없음.\n\n참고문서로 확인되는 중지 관련 기준:\n- 이상 발견 시 즉시 정지: 작업에 종사하는 근로자 또는 감시자는 이상을 발견하면 즉시 로봇 운전을 정지하기 위한 조치를 해야 함.\n- 수리·검사·조정(교시 제외)·청소·급유·결과 확인 작업 시 정지 및 오조작 방지: 로봇 작동범위 내에서 위 작업을 하는 동안에는\n  - 로봇 운전을 정지하고,\n  - 기동스위치를 열쇠로 잠그고 열쇠를 별도 관리하거나, 기동스위치에 “작업 중” 표지를 부착하는 등\n  - 해당 작업자가 아닌 사람이 기동스위치를 조작할 수 없도록 필요한 조치를 해야 함.\n- 작업 중 표시 의무: 작업을 하고 있는 동안 기동스위치 등에 “작업 중” 표시 등을 해 작업자가 아닌 사람이 스위치를 조작하지 못하도록 해야 함.\n- 예외: 운전 중 작업이 불가피하고 제222조 각 호의 조치를 한 경우에는 위 정지 의무 적용 제외. 다만 제222조의 구체 조치 내용은 참고문서에서 확인할 수 없음.", "at": "2026. 10. 18. 오후 4:41:40"}, "v2-1": {"text": "검토 결과 요약\n- 이종 로봇이 적재·피킹·운반·정리를 연계 수행해야 한다는 기능 요건: 참고문서에서 확인할 수 없음.\n- 작업자가 설비를 조작할 수 있는 사용자 환경(UI) 제공 요건: 참고문서에서 확인할 수 없음.\n\n관련 법령상 반드시 반영되어야 할 안전조치 요건(요구사항에 미반영)\n- 제222조(교시 등): 작업자가 로봇의 작동범위에서 교시 등의 작업을 하는 경우, 로봇의 예기치 못한 작동 또는 오조작에 의한 위험을 방지하는 조치를 해야 함. 다만, 로봇의 구동원을 차단하고 작업하는 경우에는 제2호와 제3호의 조치를 하지 않을 수 있음.\n- 제223조(운전 중 위험 방지): 로봇 운전으로 인한 근로자 위험 방지를 위해\n  - 높이 1.8m 이상의 울타리를 설치해야 함(로봇의 가동범위 등을 고려하여 높이로 인한 위험성이 없는 경우에는 그 이하로 조절 가능).\n  - 컨베이어 시스템 설치 등으로 울타리 설치가 불가능한 일부 구간에는 안전매트 또는 광전자식 방호장치 등 감응형 방호장치를 설치해야 함.\n  - 예외: 고용노동부장관이 해당 로봇의 안전기준이 한국산업표준 또는 국제적으로 통용되는 안전기준에 부합한다고 인정하는 경우, 위 조치를 하지 않을 수 있음.\n  - 범위: 제222조에 따른 교시 등을 위한 로봇의 운전과 제224조 단서에 따른 운전은 제외.\n\n적합성 판단\n- 현재 요구사항에는 제222조 및 제223조의 안전조치(울타리/감응형 방호장치 설치, 교시 시 위험 방지 조치 등)가 명시되어 있지 않아 참고문서 기준 충족 여부를 확인할 수 없음.\n\n보완 필요 사항(참고문서 근거)\n- 교시 등을 작업자가 수행할 수 있는 요구가 내포되어 있거나, 작업자가 로봇 작동범위에서 조작할 수 있는 사용자 환경을 제공하는 경우:\n  - 제222조에 따른 “예기치 못한 작동·오조작 위험 방지 조치”를 포함하고, 구동원 차단 시 예외 적용 가능함을 명시.\n- 로봇 운전이 이루어지는 설비/라인:\n  - 제223조에 따른 울타리(원칙 1.8m) 설치 및 울타리 불가 구간의 감응형 방호장치 설치를 포함.\n  - 또는 고용노동부장관 인정에 따른 안전기준 부합 시 제223조 본문 조치 생략 가능함을 명시.", "at": "2026. 10. 18. 오후 4:42:40"}, "4-1": {"text": "판단: 부분 부합\n\n근거\n- 제223조: 로봇 운전으로 인한 위험 방지를 위해 원칙적으로 높이 1.8m 이상의 울타리를 설치해야 하며, 울타리 설치가 어려운 일부 구간에는 안전매트 또는 광전자식 방호장치 등 감응형 방호장치를 설치해야 함. 이는 근로자 접근 시 위험을 방지하기 위한 수단으로 “감응형 방호장치” 설치를 요구하고 있어 접근 시 로봇을 정지시키는 방식의 안전 확보와 취지가 부합함.\n- 조항 2: 작업 종사자 또는 감시자는 이상 발견 시 즉시 로봇 운전을 정지시키기 위한 조치를 해야 함. 정지 기능(또는 정지 조치 체계)의 필요성을 뒷받침.\n\n확인 불가/미충족 사항\n- “사람이 접근가능한 위치에 있는 경우 로봇이 자동으로 속도를 늦춰야 한다”는 감속 요구: 참고문서에서 확인할 수 없음.\n- “접근 시 자동 정지”를 로봇 자체 기능으로 구현해야 한다는 직접적 의무: 참고문서에서 확인할 수 없음. 문서는 주로 울타리 설치와, 불가 구간의 감응형 방호장치 설치를 요구함.\n- 감응형 방호장치의 작동 방식(정지 vs 감속 등) 상세: 참고문서에서 확인할 수 없음.\n\n이행 시사점\n- 울타리(1.8m 이상) 설치가 원칙이며, 불가 구간에는 안전매트·광전자식 방호장치 등 감응형 방호장치 설치.\n- 이상 발견 시 즉시 정지하도록 인력·절차·설비(정지 조치) 확보.\n- 작업 중 표시에 의해 비작업자의 스위치 조작 방지.\n- 예외: 고용노동부장관이 안전기준 부합을 인정한 경우에는 제223조 본문 조치를 하지 않을 수 있음.", "at": "2026. 10. 18. 오후 4:44:06"}}</script>
+<script id="review-snapshot" type="application/json">{"v9-1|mi|0": "adopt", "v9-1|mi|2": "adopt", "v9-1|mi|3": "adopt", "v8-1|mi|3": "adopt", "v8-1|mi|0": "adopt", "v6-1|mi|1": "adopt", "v2-1|mi|0": "adopt", "v2-1|mi|3": "adopt", "v4-1|mi|0": "adopt", "v4-1|mi|2": "adopt", "v4-1|mi|4": "adopt", "2-1|mi|2": "adopt", "2-1|mi|4": "adopt", "4-1|mi|1": "adopt", "4-1|mi|3": "adopt", "4-1|mi|4": "adopt", "1-1|mi|0": "adopt", "1-1|mi|2": "adopt", "1-1|mi|1": "adopt"}</script>
+<script id="poc-data" type="application/json">{"cases": [{"case_type": "value", "id": "plus-one-robotics-picking", "source_prefix": "출처 8.", "title": "Plus One Robotics AI 비전 피킹", "date_label": "2024.07.16", "news_outlet": "KSAT", "news_date": "2024.07.16", "news_url": "https://www.ksat.com/news/local/2024/07/16/san-antonio-company-uses-ai-for-warehouse-management-with-human-integration/", "summary": "샌안토니오의 Plus One Robotics는 창고 자동화용 로봇 시스템을 개발. 특수 3D 카메라로 피킹할 패키지·품목을 보고, AI가 이미지를 구분해 피킹 가능한 면과 품목을 판별하며 어떤 품목을 집을지 제안. CEO는 AI가 충분하지 않을 때 사람이 원격으로 개입해 로봇에게 해야 할 일을 알려주는 방식으로 보완한다고 설명. 정량 성과는 제시되지 않음.", "case_tag": "AI 비전 피킹 판단 · 사람 원격 개입", "core_point": "기사에는 AI가 부족할 때 사람이 원격으로 개입한다고 되어 있어, 요구사항 관점에서는 개입이 필요한 판단 기준과 개입 절차·권한을 정의할 필요가 있습니다.", "tags": ["3D Vision", "AI Picking Decision", "Human-in-the-loop", "Remote Intervention"], "req_ids": ["v8-1"], "requirements": [{"id": "v8-1", "source": "출처 8. San Antonio company uses AI for warehouse management with human integration (KSAT, 2024.07.16)", "requirement_text": "피킹 로봇은 AI만으로 피킹 대상을 판단하기 어려운 경우 사람이 원격으로 개입해 로봇에게 수행할 작업을 알려줄 수 있어야 한다", "ambiguous_terms": [{"term": "AI만으로 판단하기 어려운 경우", "issue": "개입 전환 임계값·판정 기준 미정의"}, {"term": "피킹 대상", "issue": "대상 품목/속성 범위 불명확"}, {"term": "사람이", "issue": "개입 권한 주체·자격 불명확"}, {"term": "원격으로 개입", "issue": "접속 경로·지연 허용치·개입 범위 불명확"}, {"term": "수행할 작업을 알려줄", "issue": "지시 항목·입력 형식·확정 기준 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "AI 자동 판단에서 원격 개입으로 전환하는 판정 기준(신뢰도 임계값·재시도 횟수)"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "개입 요청 대기 중 로봇의 유지 상태(정지·파지물 보유 여부)와 지시 수신 후 재개 절차"}, {"rank": 3, "priority": "P0", "category": "예외", "item": "원격 지시 무응답·통신 단절 시 폴백 동작"}, {"rank": 4, "priority": "P1", "category": "성능", "item": "지시 전달 허용 지연시간 및 개입 응답 제한시간"}, {"rank": 5, "priority": "P1", "category": "권한", "item": "개입 자격 인증 방식과 동시 개입 시 우선순위·충돌 처리"}], "revised_requirement": "피킹 로봇은 [자동 판단 불가 조건] 충족 시 작업을 [안전 대기 상태]로 유지하고 [인증된 원격 작업자]에게 개입을 요청해야 한다. 원격 작업자가 [지정된 지시 입력 수단]으로 [지시 항목]을 확정하면 로봇은 해당 지시로 작업을 재개하며, [제한시간] 내 지시가 없거나 통신이 단절되면 [폴백 동작]을 수행해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "자동 판단에서 원격 개입으로 전환하는 판정 기준(신뢰도 임계값·재시도 횟수)은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "개입 대기 중 로봇의 유지 상태와 파지물 처리 방식은 어떻게 할 것인가?"}, {"rank": 3, "priority": "P0", "question": "지시 무응답·통신 단절 시 폴백 동작은 무엇으로 할 것인가?"}, {"rank": 4, "priority": "P1", "question": "지시 전달 허용 지연시간과 개입 응답 제한시간은 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "개입 권한 인증 방식과 동시 개입 시 충돌 처리는 어떻게 할 것인가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 자동 판단 불가 조건 충족 시 로봇이 작업을 중단하고 안전 대기 상태를 유지하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "개입 요청이 인증된 원격 작업자에게 전달되고 권한 없는 지시는 반영되지 않는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "원격 작업자가 지시 항목을 확정한 경우에만 로봇이 해당 지시로 작업을 재개하는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "제한시간 내 지시가 없거나 통신이 단절되면 정의된 폴백 동작을 수행하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "동시 개입 시도가 발생해도 하나의 확정 지시만 적용되는지 확인"}], "placeholder_links": [0, 1, 4, -1, -1, 3, 2], "task_category": "Picking & Handling", "similar": [], "traceability": {"mi_to_er": [[0], [1], [2], [3], [4]], "ac_to_mi": [[0, 1], [4], [1], [2, 3], [4]], "ac_to_er": [[0, 1], [4], [1], [2, 3], [4]]}, "basis": [{"type": "S", "why": "원문 'AI만으로 판단하기 어려운 경우' — 전환 기준이 문장에 없음", "route": "E"}, {"type": "I", "why": "원문에 대기 중 로봇 상태 언급 없음 — 개입 흐름에서 추론", "route": "P"}, {"type": "I", "why": "원문에 언급 없음 — 원격 개입 구조의 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 시간 기준 언급 없음 — 원격 개입 운영에서 추론", "route": "E"}, {"type": "I", "why": "원문에 개입자 자격 언급 없음 — 운영 관점에서 추론", "route": "P"}], "product": [{"ai": "common", "label": "판단 불가 시 원격 개입 요청·지시 입력", "group": "handoff"}, {"ai": "common", "label": "무응답·통신 단절 시 폴백 동작", "group": "failsafe"}, {"ai": "config", "label": "개입 전환 임계값·응답 제한시간"}, {"ai": "custom", "label": "현장별 원격 작업자 지정·지시 항목 구성"}], "er_route": ["E", "P", "E", "E", "P"]}]}, {"case_type": "value", "id": "olive-young-picking", "source_prefix": "출처 6.", "title": "CJ올리브영 경산센터 낱개 피킹 로봇", "date_label": "2025.01.20", "news_outlet": "전자신문", "news_date": "2025.01.20", "news_url": "https://m.etnews.com/20250120000142", "summary": "경산물류센터에 8종의 자동화 설비가 도입돼 물류 공정의 90% 이상이 자동화. 낱개 피킹 로봇이 AI 비전 카메라로 상품을 포착해 컨베이어에 투입하며 시간당 500개 이상 분류. 카메라·센서가 인식하지 못하는 경우를 따로 학습시켜 정확도를 높임.", "case_tag": "AI 비전 피킹 · 인식 실패 학습", "core_point": "기사에는 인식하지 못하는 경우를 따로 학습시킨다고 되어 있어, 요구사항 관점에서는 인식 성공·실패 판정 기준과 실패 시 처리 방식을 정의할 필요가 있습니다.", "tags": ["Vision Picking", "Recognition Failure", "Throughput", "Learning Feedback"], "req_ids": ["v6-1"], "requirements": [{"id": "v6-1", "source": "출처 6. [르포] CJ올리브영, \"B2B 물류 고도화로 성장 이어갈 것\"…경산센터 가보니 (전자신문, 2025.01.20)", "requirement_text": "낱개 피킹 로봇은 AI 비전 인식 카메라로 낱개 상품을 포착해 컨베이어 벨트에 투입할 수 있어야 하며, 인식하지 못한 경우를 별도로 학습시켜 정확도를 높일 수 있어야 한다", "ambiguous_terms": [{"term": "AI 비전 인식 카메라", "issue": "인식 대상 범위·성능 사양이 정의되지 않음"}, {"term": "낱개 상품", "issue": "품목 종류·크기·무게 범위가 불명확"}, {"term": "포착해", "issue": "인식인지 파지인지 동작 정의가 불명확"}, {"term": "별도로 학습시켜", "issue": "학습 주체·시점·데이터 방식이 불명확"}, {"term": "정확도를 높일 수 있어야", "issue": "기준값·목표 수치와 측정 방법이 없음"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "검증기준", "item": "인식률·피킹 성공률 목표치와 측정 방법"}, {"rank": 2, "priority": "P0", "category": "성능", "item": "시간당 처리 개수 및 상품당 피킹 사이클 타임"}, {"rank": 3, "priority": "P0", "category": "조건", "item": "대상 품목의 크기·무게·형상·포장재 범위와 적재 상태"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "인식 실패·파지 실패·낙하 시 처리 절차와 재시도 횟수"}, {"rank": 5, "priority": "P1", "category": "상태", "item": "재학습 데이터 수집·모델 배포 시 로봇 운전/정지 상태 정의"}], "revised_requirement": "낱개 피킹 로봇은 [정의된 대상 품목 범위]를 비전 인식으로 검출·파지하여 [목표 인식률·피킹 성공률]과 [목표 처리 속도]를 충족하며 컨베이어에 투입해야 한다. 인식 또는 파지에 실패한 경우 [실패 처리 절차와 재시도 횟수]에 따라 처리하고, 해당 데이터를 수집해 [재학습 및 모델 적용 절차]로 정확도를 개선할 수 있어야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "인식률과 피킹 성공률의 목표치 및 측정 방법은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "대상 품목의 크기·무게·형상·포장재 허용 범위는 어디까지인가?"}, {"rank": 3, "priority": "P0", "question": "시간당 처리 개수와 상품당 피킹 사이클 타임은 얼마인가?"}, {"rank": 4, "priority": "P0", "question": "인식 실패·파지 실패·낙하 시 처리 절차와 재시도 횟수는 어떻게 정의하는가?"}, {"rank": 5, "priority": "P1", "question": "재학습 데이터 수집과 모델 배포는 로봇 운전 중과 정지 중 어느 상태에서 수행하는가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 대상 품목 범위 내 상품을 비전 인식으로 검출·파지해 컨베이어에 투입하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "확정된 목표 인식률 및 피킹 성공률 기준을 충족하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "확정된 목표 처리 속도 기준을 충족하는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "인식 또는 파지 실패 시 정의된 실패 처리 절차와 재시도 횟수에 따라 동작하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "실패 데이터가 수집되어 정의된 재학습 및 모델 적용 절차로 반영되는지 확인"}], "placeholder_links": [1, 0, 2, 3, 4], "task_category": "Picking & Handling", "similar": [{"other_id": "v7-1", "topic": "허용범위·성공률·장애처리 기준", "er_pairs": [[1, 0], [0, 2], [3, 1]]}], "traceability": {"mi_to_er": [[0], [2], [1], [3], [4]], "ac_to_mi": [[2], [0], [1], [3], [4]], "ac_to_er": [[1], [0], [2], [3], [4]]}, "basis": [{"type": "S", "why": "원문 '정확도를 높일 수 있어야' — 목표치·측정 방법 없음", "route": "E"}, {"type": "S", "why": "사례 원문 '시간당 500개 이상' — 요구사항에 처리 속도 기준 누락", "route": "E"}, {"type": "I", "why": "원문은 '낱개 상품'만 언급 — 품목 범위는 추론", "route": "P"}, {"type": "S", "why": "원문 '인식하지 못한 경우' — 처리 절차가 정의되지 않음", "route": "P"}, {"type": "I", "why": "원문에 배포 시점 언급 없음 — 운영 중단 영향에서 추론", "route": "P"}], "product": [{"ai": "common", "label": "인식 실패 데이터 수집·재학습 반영", "group": "retrain"}, {"ai": "config", "label": "목표 인식률·처리 속도·재시도 횟수"}, {"ai": "custom", "label": "센터별 대상 품목 범위"}], "er_route": ["E", "P", "E", "P", "P"]}]}, {"case_type": "value", "id": "solwins-inspection", "source_prefix": "출처 9.", "title": "솔루윈스 협동로봇 품질검사 자동화", "date_label": "2024.12.16", "news_outlet": "전자신문", "news_date": "2024.12.16", "news_url": "https://www.etnews.com/20241216000006", "summary": "AI 대형비전언어모델과 협동로봇을 결합해 생산 라인에서 불량 부품을 자동으로 찾아 분류하는 솔루션을 신평산업에 적용. 불량 발생률 50% 감축, 검사 시간 절반 단축, 솔루션 적용 생산라인의 불량품 검출 정확도 93.5%.", "case_tag": "AI 비전 검사 · 불량 자동 분류", "core_point": "기사에는 검출 정확도가 제시되어 있지만, 요구사항 관점에서는 정상·불량 판정 기준과 판정 불가 시 처리 방식을 정의할 필요가 있습니다.", "tags": ["Vision Inspection", "Defect Sorting", "Pass/Fail Criteria", "Production Line"], "req_ids": ["v9-1"], "requirements": [{"id": "v9-1", "source": "출처 9. 솔루윈스, 제조 현안 해결 '품질 검사 자동화 솔루션' 개발 (전자신문, 2024.12.16)", "requirement_text": "협동로봇과 AI 비전언어모델을 결합한 검사 솔루션은 생산 라인에서 불량 부품을 자동으로 찾아 분류할 수 있어야 한다", "ambiguous_terms": [{"term": "불량 부품", "issue": "불량 판정 기준·결함 유형 범위가 정의되지 않음"}, {"term": "자동으로", "issue": "사람 개입 범위와 자동화 수준이 불명확"}, {"term": "찾아", "issue": "검출 정확도·처리 속도 기준이 없음"}, {"term": "분류", "issue": "분류 등급 수와 물리적 분류 동작 여부가 불명확"}, {"term": "결합한", "issue": "로봇과 모델 간 역할 분담·연동 방식이 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "검증기준", "item": "검출 정확도·오검출/미검출 허용률 목표치"}, {"rank": 2, "priority": "P0", "category": "성능", "item": "라인 택트타임 대비 검사 처리 시간 및 처리량"}, {"rank": 3, "priority": "P0", "category": "조건", "item": "검사 대상 부품 종류와 결함 유형별 판정 기준"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "판정 불가·모델 신뢰도 미달 시 처리 방식과 사람 개입 시점"}, {"rank": 5, "priority": "P1", "category": "상태", "item": "로봇-비전모델 연동 실패 및 라인 정지 시 부품 처리 상태"}], "revised_requirement": "시스템은 [검사 대상 부품군]에 대해 [정의된 결함 유형별 판정 기준]에 따라 불량 여부를 판정하고, 협동로봇이 [분류 등급 체계]에 맞춰 물리적으로 분류해야 한다. 판정 신뢰도가 [값] 미만이거나 로봇-비전모델 연동에 실패한 경우에는 해당 부품을 [보류 처리 상태]로 이송하고 [권한 사용자]의 확인을 요청해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "검출 정확도와 오검출·미검출 허용률 목표치는 얼마인가?"}, {"rank": 2, "priority": "P0", "question": "라인 택트타임 대비 허용 검사 처리 시간과 처리량은 얼마인가?"}, {"rank": 3, "priority": "P0", "question": "사람 개입을 요구하는 모델 신뢰도 임계값은 어떻게 정하는가?"}, {"rank": 4, "priority": "P1", "question": "비전언어모델과 로봇 제어기의 역할 분담 및 연동 방식은 무엇인가?"}, {"rank": 5, "priority": "P1", "question": "연동 실패·라인 정지 시 이송 중 부품은 어떤 상태로 처리하는가?"}, {"question": "검사 대상 부품군과 결함 유형별 불량 판정 기준은 누가 어떤 기준으로 정의·승인하는가?", "priority": "P0", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 결함 유형별 판정 기준에 따라 대상 부품의 불량 여부가 판정되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "판정 결과에 따라 협동로봇이 정의된 분류 등급 체계대로 부품을 물리적으로 분류하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "판정 신뢰도가 기준값 미만인 부품이 보류 처리 상태로 이송되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "로봇과 비전언어모델 연동 실패 시 해당 부품이 자동 분류되지 않고 보류 처리되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "보류 처리된 부품이 권한 사용자의 확인 없이 후속 공정으로 진행되지 않는지 확인"}], "placeholder_links": [-1, 0, -1, 2, 4, -1], "task_category": "Vision Inspection", "similar": [], "traceability": {"mi_to_er": [[0], [1], [5], [2, 4], [3, 4]], "ac_to_mi": [[2], [], [3], [4], [3]], "ac_to_er": [[], [], [2], [4], []]}, "basis": [{"type": "S", "why": "사례 원문 '검출 정확도 93.5%' — 요구사항에 합격 기준 없음", "route": "E"}, {"type": "S", "why": "사례 원문 '검사 시간 절반 단축' — 라인 기준 처리 시간 미정의", "route": "E"}, {"type": "S", "why": "원문 '불량 부품' — 불량 판정 기준이 문장에 없음", "route": "P"}, {"type": "I", "why": "원문에 판정 불가 상황 언급 없음 — AI 판정 시스템의 일반 예외로 추론", "route": "P"}, {"type": "I", "why": "원문에 연동 실패 언급 없음 — 로봇·모델 결합 구조에서 추론", "route": "B"}], "product": [{"ai": "common", "label": "신뢰도 미달 부품 보류·사람 확인 요청", "group": "lowconf"}, {"ai": "config", "label": "신뢰도 임계값·허용 오검출률"}, {"ai": "custom", "label": "고객사 부품군·결함 유형별 판정 기준"}], "er_route": ["E", "E", "E", "E", "P", "P"]}]}, {"case_type": "value", "id": "gmarket-logistics", "source_prefix": "출처 2.", "title": "G마켓 물류센터 로봇 통합 운영", "date_label": "2024.03.24", "news_outlet": "연합뉴스", "news_date": "2024.03.24", "news_url": "https://www.yna.co.kr/view/AKR20240322171000030", "summary": "동탄메가센터에 LG CNS 이종 로봇 통합 운영 솔루션 도입. 로보셔틀+피킹 로봇이 적재·피킹·운반·정리 전 과정을 수행해 공간 효율 3배 이상 증가. 현재 기술 검증 진행 중.", "case_tag": "이종 로봇 통합 운영 · 공간 효율 개선", "core_point": "적재·피킹·운반·정리 업무를 이종 로봇이 연계 수행하기 위해, 공정 범위·작업 인계·예외처리 조건을 요구사항 단계에서 구체화할 필요가 있습니다.", "tags": ["Fleet Integration", "Task Handoff", "Fault Handling", "Throughput"], "req_ids": ["v2-1"], "requirements": [{"id": "v2-1", "source": "출처 2. 적재·운반도 로봇이 '척척'…G마켓 물류센터 첨단설비 도입 (연합뉴스, 2024.03.24)", "requirement_text": "로봇 통합 운영 시스템은 적재·피킹·운반·정리 공정을 이종 로봇이 연계해 수행할 수 있어야 하며, 작업자가 설비를 조작할 수 있는 사용자 환경을 제공해야 한다", "ambiguous_terms": [{"term": "이종 로봇", "issue": "대상 로봇 종류·제조사·인터페이스 범위 미정의"}, {"term": "연계해 수행", "issue": "연계 방식·작업 이관 기준·동기화 조건 불명확"}, {"term": "적재·피킹·운반·정리 공정", "issue": "각 공정의 범위와 완료 판정 기준 미정의"}, {"term": "사용자 환경", "issue": "UI 형태·제공 매체·기능 범위 불명확"}, {"term": "설비를 조작", "issue": "조작 대상 설비와 허용 조작 권한 범위 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "연계 대상 로봇 기종·제조사별 통신 인터페이스 및 프로토콜 규격"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "공정 간 작업 이관 시점·선행조건 및 공정별 완료 판정 기준"}, {"rank": 3, "priority": "P0", "category": "권한", "item": "작업자 역할별 조작 가능 설비 범위와 권한 등급"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "로봇 통신 단절·작업 실패 시 공정 중단 및 복구 처리 방식"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "동시 운용 로봇 대수 및 작업 지시 응답 시간 목표"}], "revised_requirement": "로봇 통합 운영 시스템은 [정의된 공정 목록]을 [연계 대상 로봇군]이 [작업 이관 기준]에 따라 연속 수행하도록 제어하고, 각 공정은 [공정별 완료 판정 기준]으로 완료를 판정해야 한다. 또한 [권한 등급별 작업자]가 [조작 대상 설비 범위]를 조작할 수 있는 사용자 환경을 제공하고, [통신 단절·작업 실패 조건] 발생 시 공정을 중단하고 [복구 절차]에 따라 재개해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "기종·제조사별 통신 인터페이스와 프로토콜을 어떤 규격으로 통합할 것인가?"}, {"rank": 2, "priority": "P0", "question": "공정 간 작업 이관 시점과 선행조건을 어떤 신호·상태로 판정할 것인가?"}, {"rank": 3, "priority": "P0", "question": "통신 단절·작업 실패 시 중단 범위와 복구 방식은 어떻게 할 것인가?"}, {"rank": 4, "priority": "P1", "question": "권한 등급별 조작 가능 설비와 제어 우선순위를 어떻게 구분할 것인가?"}, {"rank": 5, "priority": "P1", "question": "동시 운용 로봇 대수와 작업 지시 응답 시간 목표는 얼마인가?"}, {"question": "통신 단절·작업 실패는 어떤 신호·시간 기준으로 감지하고, 복구 시 로봇 상태를 어떻게 동기화하는가?", "priority": "P0", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 공정 목록이 연계 대상 로봇군에 의해 중단 없이 연속 수행되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "공정 간 작업 이관이 정의된 이관 기준을 충족한 경우에만 수행되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "각 공정이 공정별 완료 판정 기준에 따라 완료로 판정되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "통신 단절·작업 실패 조건 발생 시 공정이 중단되고 복구 절차 충족 후에만 재개되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "권한 등급별 작업자가 허용된 조작 대상 설비 범위 내에서만 조작할 수 있는지 확인"}], "placeholder_links": [-1, 4, 1, -1, 3, 3, 2, 2], "task_category": "Fleet & Handoff", "similar": [{"other_id": "v3-1", "topic": "이종로봇 통신/장애/성능 기준", "er_pairs": [[0, 3], [2, 2], [4, 4]]}], "traceability": {"mi_to_er": [[0], [1], [3], [2, 5], [4]], "ac_to_mi": [[0], [1], [1], [3], [2]], "ac_to_er": [[0], [1], [1], [2], [3]]}, "basis": [{"type": "S", "why": "원문 '이종 로봇이 연계' — 통합 규격이 문장에 없음", "route": "E"}, {"type": "S", "why": "원문 '연계해 수행' — 공정 간 이관 기준이 문장에 없음", "route": "E"}, {"type": "S", "why": "원문 '작업자가 설비를 조작' — 조작 범위·권한 미정의", "route": "P"}, {"type": "I", "why": "원문에 예외 상황 언급 없음 — 다중 공정 연계 구조에서 추론", "route": "B"}, {"type": "I", "why": "원문에 대수·응답 목표 언급 없음 — 통합 운영 규모에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "공정 간 작업 이관·완료 판정", "group": "alloc"}, {"ai": "common", "label": "작업자 권한 등급별 설비 조작", "group": "rbac"}, {"ai": "config", "label": "동시 운용 대수·작업 지시 응답 시간"}, {"ai": "custom", "label": "현장 로봇 기종·프로토콜 연동"}], "er_route": ["E", "E", "P", "P", "E", "E"]}]}, {"case_type": "value", "id": "manufacturing-orchestration", "source_prefix": "출처 3.", "title": "제조업 로봇 공장 통합 운영", "date_label": "2026.07.09", "news_outlet": "네이트", "news_date": "2026.07.09", "news_url": "https://news.nate.com/view/20260709n09378", "summary": "디지털 트윈 사전검증 + VLA 기반 현장 대응 + 이기종 로봇·생산관리시스템·설비데이터 통합 관제로, 공정 지연·설비 이상 발생 시 로봇별 작업 지시와 경로를 재배정하는 체계로 확장 중 (SK AX '제조 RX 풀스택 서비스').", "case_tag": "공정 통합 관제 · 이상 대응 자동화", "core_point": "기사에서는 작업·경로 재배정 기능이 소개되지만, 재배정 판정 기준과 예외처리 조건까지는 확인하기 어렵습니다.", "tags": ["Fleet Orchestration", "Fault Detection", "Auto Reassignment", "Safety Stop"], "req_ids": ["v3-1"], "requirements": [{"id": "v3-1", "source": "출처 3. 제조업 로봇 활용, 자동 작업 넘어 공장 통합 운영으로 (네이트, 2026.07.09)", "requirement_text": "공장 통합 관제 시스템은 공정 지연이나 설비 이상이 발생한 경우, 이기종 로봇의 작업 지시와 이동 경로를 자동으로 재배정할 수 있어야 한다", "ambiguous_terms": [{"term": "공정 지연", "issue": "지연 판정 기준·임계 시간 미정의"}, {"term": "설비 이상", "issue": "이상 유형과 감지 조건이 불명확"}, {"term": "이기종 로봇", "issue": "대상 기종·인터페이스 범위 불명확"}, {"term": "자동으로", "issue": "사람 개입·승인 절차 여부 불명확"}, {"term": "재배정", "issue": "우선순위 규칙과 완료 판정 기준 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "재배정 트리거 판정 기준과 우선순위 규칙(작업 긴급도·납기·로봇 가용성)"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "재배정 시점의 진행 중 작업 처리 방식(중단·완료 후 전환)과 로봇 초기 상태 정의"}, {"rank": 3, "priority": "P0", "category": "예외", "item": "재배정 실패·경로 충돌·통신 두절 시 대체 동작 및 안전 정지 기준"}, {"rank": 4, "priority": "P1", "category": "성능", "item": "이상 감지부터 재배정 지시 전달까지 허용 시간 및 동시 처리 로봇 대수"}, {"rank": 5, "priority": "P1", "category": "권한", "item": "자동 재배정 결과에 대한 운영자 승인·수동 개입 권한 범위"}], "revised_requirement": "공장 통합 관제 시스템은 [정의된 공정 지연 조건] 또는 [정의된 설비 이상 조건]이 감지되면, [지원 대상 로봇군]의 작업 지시와 이동 경로를 [재배정 우선순위 규칙]에 따라 [값] 이내에 재배정해야 한다. 재배정 실패·경로 충돌·통신 두절 시에는 [대체 동작]을 수행하고, [운영자 개입 권한 범위]에 따라 수동 조정이 가능해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "공정 지연과 설비 이상의 감지 기준과 임계값은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "재배정 시 진행 중인 작업은 중단할 것인가, 완료 후 전환할 것인가?"}, {"rank": 3, "priority": "P0", "question": "재배정 실패·경로 충돌·통신 두절 시 안전 정지 기준은 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "이기종 로봇 제어를 위한 지원 기종과 통신 인터페이스 범위는 어디까지인가?"}, {"rank": 5, "priority": "P1", "question": "이상 감지부터 재배정 지시 전달까지 허용 시간과 동시 처리 로봇 대수는 얼마인가?"}, {"question": "작업 긴급도·납기·로봇 가용성 중 재배정 우선순위는 어떤 순서로 정하고 누가 승인하는가?", "priority": "P0", "rank": 6, "added": true}, {"question": "자동 재배정 결과에 운영자 승인이 필요한 경우와 수동 조정 권한 범위는 어디까지인가?", "priority": "P1", "rank": 7, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 공정 지연 또는 설비 이상 조건이 감지되면 재배정이 자동으로 개시되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "재배정 시 진행 중인 작업이 정의된 전환 규칙에 따라 처리되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "재배정 실패·경로 충돌·통신 두절 시 정의된 대체 동작과 안전 상태로 전환되는지 확인"}, {"rank": 4, "priority": "P1", "criterion": "재배정 결과가 정의된 우선순위 규칙과 허용 시간 이내에 로봇에 전달되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "지원 대상 로봇군 전체에 대해 재배정 기능이 유효하며 운영자 수동 조정이 가능한지 확인"}], "placeholder_links": [0, 0, 3, -1, 4, 2, -1], "task_category": "Fleet & Handoff", "similar": [{"other_id": "v2-1", "topic": "이종로봇 통신/장애/성능 기준", "er_pairs": [[3, 0], [2, 2], [4, 4]]}, {"other_id": "3-1", "topic": "감지 기준과 허용시간 정의", "er_pairs": [[0, 0], [4, 4]]}], "traceability": {"mi_to_er": [[0, 5], [1], [2], [4], [6]], "ac_to_mi": [[0], [1], [2], [0, 3], [4]], "ac_to_er": [[0], [1], [2], [4], [3]]}, "basis": [{"type": "S", "why": "원문 '공정 지연이나 설비 이상' — 판정 기준·우선순위 없음", "route": "B"}, {"type": "I", "why": "원문에 진행 중 작업 처리 언급 없음 — 재배정 흐름에서 추론", "route": "P"}, {"type": "I", "why": "원문에 실패 상황 언급 없음 — 자동 재배정의 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문 '자동으로 재배정' — 허용 시간 기준은 추론", "route": "E"}, {"type": "I", "why": "원문 '자동으로' — 사람 승인 지점 필요 여부는 추론", "route": "P"}], "product": [{"ai": "common", "label": "이상 감지 시 작업 지시·경로 재배정", "group": "alloc"}, {"ai": "common", "label": "자동 재배정 결과 운영자 승인·수동 조정", "group": "handoff"}, {"ai": "config", "label": "지연·이상 판정 임계값, 재배정 허용 시간"}, {"ai": "custom", "label": "공장별 재배정 우선순위 규칙(납기·긴급도)"}], "er_route": ["E", "P", "E", "E", "E", "P", "P"]}]}, {"case_type": "value", "id": "dhl-stretch-unloading", "source_prefix": "출처 7.", "title": "DHL 하역 로봇 Stretch 상용 도입", "date_label": "2023", "news_outlet": "DHL Supply Chain 보도자료", "news_date": "2023", "news_url": "https://www.dhl.com/us-en/home/press/press-archive/2023/dhl-supply-chain-achieves-first-commercial-deployment-of-boston-dynamics-stretch-robot.html", "summary": "DHL Supply Chain이 보스턴 다이내믹스 Stretch를 트레일러 하역에 첫 상용 도입. 비전으로 박스를 식별하고 혼합 적재와 낙하 박스 복구를 자율 처리하며, 모든 테스트 환경에서 수작업보다 빠른 하역 속도를 기록. 사람 개입 횟수를 줄이는 방향으로 개선 계획.", "case_tag": "낙하 박스 자동 복구 · 사람 개입 감소", "core_point": "기사에는 낙하 박스 복구와 사람 개입 감소 계획이 제시되어 있어, 요구사항 관점에서는 복구 성공·실패 판정과 사람 개입 전환 조건을 정의할 필요가 있습니다.", "tags": ["Unloading", "Auto Recovery", "Human Intervention", "Mixed Stacking"], "req_ids": ["v7-1"], "requirements": [{"id": "v7-1", "source": "출처 7. DHL Supply Chain, 보스턴 다이내믹스 Stretch 로봇 첫 상용 도입 (DHL 보도자료, 2023)", "requirement_text": "하역 로봇은 트레일러 안의 박스를 식별해 컨베이어로 옮길 수 있어야 하며, 혼합 적재 상황과 낙하한 박스를 자율적으로 복구하고, 필요한 사람 개입 횟수를 줄여 나갈 수 있어야 한다", "ambiguous_terms": [{"term": "식별", "issue": "인식 대상 속성·정확도 기준이 정의되지 않음"}, {"term": "혼합 적재 상황", "issue": "혼합 유형·범위 정의 없음"}, {"term": "자율적으로 복구", "issue": "복구 완료 상태와 허용 개입 수준 불명확"}, {"term": "필요한 사람 개입 횟수를 줄여 나갈", "issue": "기준치·목표치·측정 기간 없음"}, {"term": "박스", "issue": "치수·무게·재질 범위 미지정"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "처리 대상 박스 물리 사양 범위(치수·무게·재질·라벨 상태)"}, {"rank": 2, "priority": "P0", "category": "예외", "item": "자율 복구 실패 판정 조건 및 사람 호출·정지 기준"}, {"rank": 3, "priority": "P0", "category": "검증기준", "item": "박스 식별 정확도 및 이송 성공률 합격 기준"}, {"rank": 4, "priority": "P1", "category": "성능", "item": "시간당 하역 처리량 및 낙하 복구 소요시간 상한"}, {"rank": 5, "priority": "P1", "category": "검증기준", "item": "사람 개입 횟수 기준선·목표치·측정 기간"}], "revised_requirement": "하역 로봇은 [정의된 박스 사양 범위] 내 박스를 [식별 정확도 기준] 이상으로 인식해 컨베이어로 이송하고, [정의된 혼합 적재 유형]과 [낙하 박스 상황]에서 [복구 완료 상태]까지 사람 개입 없이 복구해야 한다. 복구가 [복구 실패 판정 조건]에 해당하면 안전 정지 후 사람을 호출해야 하며, 사람 개입 횟수는 [측정 기간] 동안 [기준선] 대비 [값]까지 감소해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "처리 대상 박스의 치수·무게·재질·라벨 상태 허용 범위는 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "자율 복구 실패로 판정해 정지·호출하는 조건은 무엇인가?"}, {"rank": 3, "priority": "P0", "question": "박스 식별 정확도와 이송 성공률의 합격 기준은 얼마인가?"}, {"rank": 4, "priority": "P1", "question": "지원해야 할 혼합 적재 유형과 범위는 어디까지인가?"}, {"rank": 5, "priority": "P1", "question": "시간당 하역 처리량과 낙하 복구 소요시간 상한은 얼마인가?"}, {"question": "사람 개입 횟수의 기준선·목표치·측정 기간은 누가 어떤 기준으로 정하는가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 박스 사양 범위 내 박스를 식별 정확도 기준 이상으로 인식해 컨베이어로 이송하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "정의된 혼합 적재 유형에서 사람 개입 없이 복구 완료 상태에 도달하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "낙하 박스 상황에서 자율 복구가 수행되어 정의된 복구 완료 상태에 도달하는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "복구 실패 판정 조건에 해당할 때 안전 정지 후 사람 호출이 이루어지는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "측정 기간 동안 사람 개입 횟수가 기준선 대비 목표값까지 감소하는지 확인"}], "placeholder_links": [0, 2, 3, -1, -1, 1, -1, -1, -1], "task_category": "Picking & Handling", "similar": [{"other_id": "v6-1", "topic": "허용범위·성공률·장애처리 기준", "er_pairs": [[0, 1], [2, 0], [1, 3]]}], "traceability": {"mi_to_er": [[0], [1], [2], [4], [5]], "ac_to_mi": [[0, 2], [], [3], [1], [4]], "ac_to_er": [[0, 2], [3], [3, 4], [1], []]}, "basis": [{"type": "S", "why": "원문 '박스를 식별' — 처리 대상 박스 범위 미정의", "route": "P"}, {"type": "S", "why": "원문 '자율적으로 복구' — 복구 실패 판정 기준 없음", "route": "E"}, {"type": "S", "why": "원문 '박스를 식별' — 식별 정확도 합격 기준 없음", "route": "E"}, {"type": "S", "why": "사례 원문 '수작업보다 빠른 하역' — 처리량 기준 없음", "route": "E"}, {"type": "S", "why": "원문 '사람 개입 횟수를 줄여' — 기준선·목표가 없음", "route": "P"}], "product": [{"ai": "common", "label": "복구 실패 시 안전 정지·사람 호출", "group": "handoff"}, {"ai": "config", "label": "복구 실패 판정 조건·처리량 목표"}, {"ai": "custom", "label": "고객 화물별 박스 사양·혼합 적재 유형"}], "er_route": ["P", "E", "E", "P", "E", "P"]}]}, {"case_type": "value", "id": "sk-innovation-robot-dog", "source_prefix": "출처 4.", "title": "SK이노베이션 순찰 로봇개", "date_label": "2024.05.26", "news_outlet": "연합뉴스", "news_date": "2024.05.26", "news_url": "https://www.yna.co.kr/view/AKR20240524120400003", "summary": "울산CLX에서 로봇개가 가스탐지·열화상·30배줌으로 주간 순찰, 사람 하루 3회 대비 4~6회 수행. 안전 문제로 현재는 주간만 운영하며, 테스트 완료 후 하반기 야간 순찰 확대 계획 ('스마트 플랜트 2.0', 연간 100억원 비용 개선 기대).", "case_tag": "주간 성과 기반 야간 확대", "core_point": "기사에는 야간 순찰 확대 전 테스트 계획이 제시되어 있어, 실제 요구사항에서는 야간 운행 조건과 테스트 완료 기준을 구체화할 필요가 있습니다.", "tags": ["Autonomous Patrol", "Low-light Detection", "Fail-safe", "Approval Gate"], "req_ids": ["v4-1"], "requirements": [{"id": "v4-1", "source": "출처 4. [르포] 로봇개가 공장 순찰을…SK이노베이션 '스마트 플랜트 2.0' (연합뉴스, 2024.05.26)", "requirement_text": "로봇개는 주간 순찰에서 검증된 이상 감지·알림 기능을 바탕으로, 테스트 완료 후 사람의 개입 없이 야간 순찰까지 확대 수행할 수 있어야 한다", "ambiguous_terms": [{"term": "검증된", "issue": "검증 주체·합격 기준·증빙 방법 미정의"}, {"term": "이상 감지", "issue": "이상의 정의와 탐지 대상 항목이 불명확"}, {"term": "테스트 완료 후", "issue": "테스트 범위와 완료 판정 기준 부재"}, {"term": "사람의 개입 없이", "issue": "자율 수준과 예외 시 개입 허용 범위 불명확"}, {"term": "야간 순찰까지 확대 수행", "issue": "야간 정의(시간대)와 확대 범위·성능 기준 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "검증기준", "item": "야간 확대 승인을 위한 테스트 항목·합격 기준과 판정 주체"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "야간 시간대 정의 및 확대 대상 구역·경로 범위"}, {"rank": 3, "priority": "P0", "category": "성능", "item": "저조도 환경에서의 이상 감지율·오탐율 및 감지 거리 기준"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "감지 실패·통신 두절·배터리 부족·장애물 발생 시 대응 동작과 복귀 상태"}, {"rank": 5, "priority": "P1", "category": "권한", "item": "야간 알림 수신 주체와 원격 개입·순찰 중단 권한 범위"}], "revised_requirement": "로봇개는 [정의된 이상 항목]에 대한 감지·알림 성능이 [야간 확대 승인 기준]을 충족하고 [판정 권한자]의 승인을 받은 경우, [야간 시간대]의 [지정 순찰 구역·경로]를 사람의 상시 개입 없이 순찰해야 한다. [감지 실패·통신 두절·배터리 부족 등 예외 조건] 발생 시에는 [정의된 안전 동작]으로 전환하고 [알림 수신 주체]에게 통보해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "야간 확대 승인을 위한 테스트 항목과 합격 기준은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "저조도 환경에서 요구되는 감지율·오탐율·감지 거리는 얼마인가?"}, {"rank": 3, "priority": "P0", "question": "통신 두절·배터리 부족 시 로봇의 안전 동작과 복귀 상태는 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "야간 순찰 대상 시간대와 구역·경로 범위는 어떻게 정의하는가?"}, {"rank": 5, "priority": "P1", "question": "야간 알림 수신 주체와 원격 개입·순찰 중단 권한은 어디까지 허용하는가?"}, {"question": "야간 확대 승인의 판정 주체와 승인 절차는 무엇인가?", "priority": "P0", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 야간 확대 승인 기준을 충족하고 권한자 승인이 있는 경우에만 야간 순찰이 개시되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "저조도 야간 환경에서 정의된 이상 항목에 대한 감지·알림 성능 기준을 충족하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "감지 실패·통신 두절·배터리 부족 발생 시 정의된 안전 동작으로 전환되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "예외 조건 발생 시 지정된 알림 수신 주체에게 통보가 이루어지는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "지정된 야간 시간대와 순찰 구역·경로 범위 내에서만 자율 순찰이 수행되는지 확인"}], "placeholder_links": [-1, 0, 4, 3, 3, 2, 2, 4], "task_category": "Autonomous Patrol", "similar": [], "traceability": {"mi_to_er": [[0, 5], [3], [1], [2], [4]], "ac_to_mi": [[0], [2], [3], [3, 4], [1]], "ac_to_er": [[0], [1], [2], [2, 4], [3]]}, "basis": [{"type": "S", "why": "원문 '테스트 완료 후' — 합격 기준·판정 주체 없음", "route": "B"}, {"type": "S", "why": "원문 '야간 순찰까지 확대' — 시간대·구역 미정의", "route": "P"}, {"type": "I", "why": "원문은 주간 검증만 언급 — 야간 저조도 성능 기준은 추론", "route": "E"}, {"type": "I", "why": "원문에 예외 상황 언급 없음 — 무인 순찰 운영에서 추론", "route": "E"}, {"type": "I", "why": "원문 '사람의 개입 없이' — 알림·중단 권한은 추론", "route": "P"}], "product": [{"ai": "common", "label": "통신 두절·배터리 부족 시 안전 동작·복귀", "group": "failsafe"}, {"ai": "common", "label": "예외 발생 시 알림 통보", "group": "alert"}, {"ai": "config", "label": "야간 시간대·저조도 감지율 기준"}, {"ai": "custom", "label": "사업장별 순찰 구역·경로, 알림 수신자"}], "er_route": ["E", "E", "E", "P", "P", "P"]}]}, {"case_type": "value", "id": "kakaomobility-hotel-delivery", "source_prefix": "출처 5.", "title": "카카오모빌리티 호텔 로봇 배송", "date_label": "2026.03.16", "news_outlet": "연합뉴스", "news_date": "2026.03.16", "news_url": "https://www.yna.co.kr/view/AKR20260316051700017?section=search", "summary": "로보티즈와 협업해 호텔 실내외 배송로봇 서비스 상용화. 도입 후 가동률 8배 상승, 배송 성공률 100% 달성. QR 주문 시스템과 결합해 A호텔 룸서비스 매출 약 3배 증가.", "case_tag": "가동률·매출 증가 지속 조건", "core_point": "기사에는 배송 성공률 성과가 제시되어 있지만, 요구사항 관점에서는 배송 완료·실패 판정 및 예외처리 기준을 추가로 정의할 필요가 있습니다.", "tags": ["System Integration", "Delivery Completion", "Exception Handling", "Order State"], "req_ids": ["v5-1"], "requirements": [{"id": "v5-1", "source": "출처 5. 호텔 룸서비스까지 로봇이 배송…카카오모빌리티 통했다 (연합뉴스, 2026.03.16)", "requirement_text": "로봇 배송 플랫폼은 QR 기반 주문 시스템과 연동하여, 룸서비스 주문 접수부터 로봇 배송 완료까지의 상태를 처리할 수 있어야 한다", "ambiguous_terms": [{"term": "연동", "issue": "인터페이스 방식·데이터 항목·방향이 불명확"}, {"term": "상태", "issue": "상태 종류와 전이 정의가 없음"}, {"term": "처리할 수 있어야 한다", "issue": "처리 동작(수신/갱신/전달)의 범위가 불명확"}, {"term": "QR 기반 주문 시스템", "issue": "대상 시스템 식별과 규격이 불명확"}, {"term": "배송 완료", "issue": "완료 판정 기준과 확인 주체가 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "연동 인터페이스 규격(프로토콜·API 엔드포인트·데이터 항목·호출 방향)"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "주문·배송 상태 값 집합과 상태 전이 규칙"}, {"rank": 3, "priority": "P0", "category": "검증기준", "item": "배송 완료 판정 기준과 확인 주체(수령 확인 수단)"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "연동 실패·주문 취소·수령 지연·로봇 이동 실패 시 처리 방식"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "상태 동기화 주기 및 반영 지연 허용 한계"}], "revised_requirement": "로봇 배송 플랫폼은 [지정된 QR 주문 시스템]과 [정의된 연동 인터페이스]를 통해 주문 접수부터 배송 완료까지 [정의된 주문·배송 상태 집합]을 [정의된 상태 전이 규칙]에 따라 수신·갱신·전달해야 한다. 배송 완료는 [완료 판정 기준]과 [수령 확인 수단]으로 확정되며, [정의된 예외 상황] 발생 시 [지정된 예외 처리 절차]를 수행해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "QR 주문 시스템과의 연동 프로토콜·API 규격과 호출 방향은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "주문·배송 상태 값 집합과 전이 규칙은 어떻게 정의할 것인가?"}, {"rank": 3, "priority": "P0", "question": "배송 완료 판정 기준과 수령 확인 수단은 무엇으로 할 것인가?"}, {"rank": 4, "priority": "P0", "question": "연동 실패·주문 취소·수령 지연·이동 실패 시 처리 방식은 무엇인가?"}, {"rank": 5, "priority": "P1", "question": "상태 동기화 주기와 허용 반영 지연은 얼마인가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "지정된 QR 주문 시스템과 정의된 인터페이스를 통해 주문 접수 정보가 수신되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "주문 접수부터 배송 완료까지 정의된 상태 집합이 전이 규칙에 따라 갱신·전달되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "배송 완료가 정의된 완료 판정 기준과 수령 확인 수단으로만 확정되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "연동 실패·주문 취소·수령 지연·이동 실패 시 지정된 예외 처리 절차가 수행되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "상태 변경이 정의된 허용 반영 지연 내에 주문 시스템과 동기화되는지 확인"}], "placeholder_links": [-1, 0, 1, 1, 2, 2, 3, 3], "task_category": "Delivery", "similar": [{"other_id": "v1-1", "topic": "배송 예외처리 및 수령확인", "er_pairs": [[2, 1], [3, 2]]}], "traceability": {"mi_to_er": [[0], [1], [2], [3], [4]], "ac_to_mi": [[0], [1], [2], [3], [4]], "ac_to_er": [[0], [1], [2], [3], [4]]}, "basis": [{"type": "S", "why": "원문 'QR 기반 주문 시스템과 연동' — 연동 규격 없음", "route": "E"}, {"type": "S", "why": "원문 '주문 접수부터 배송 완료까지의 상태' — 상태 정의 없음", "route": "P"}, {"type": "S", "why": "원문에 배송 완료 기준이 없음", "route": "P"}, {"type": "I", "why": "원문에 취소·지연 언급 없음 — 주문 처리 흐름에서 추론", "route": "P"}, {"type": "I", "why": "원문에 동기화 주기 언급 없음 — 상태 연동 구조에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "주문·배송 상태 전이 관리", "group": "state"}, {"ai": "config", "label": "상태 동기화 주기·허용 지연"}, {"ai": "custom", "label": "호텔별 QR 주문 시스템 연동·수령 확인 수단"}], "er_route": ["E", "P", "P", "P", "E"]}]}, {"case_type": "value", "id": "chungnam-hospital-robot", "source_prefix": "출처 1.", "title": "충남대병원 약제 이송 로봇 '드림이'", "date_label": "2026.06.17", "news_outlet": "연합뉴스", "news_date": "2026.06.17", "news_url": "https://www.yna.co.kr/view/AKR20260617126300063", "summary": "1호 '다송이'가 7개월간 검체·약제 이송 8천 건 이상을 수행해 지원인력 5명분 업무량의 약 7배를 처리. 2호 '드림이'는 원내 약국~병동 정규 약제 배송 자동화에 집중해 지원인력·간호사의 반복 왕래 업무를 줄일 것으로 기대.", "case_tag": "반복 업무 자동화 · 처리량 확대", "core_point": "기사에서 확인된 약제 이송 업무를 요구사항으로 전환하면, 배송 대상·인계 완료·예외처리 조건을 추가로 정의할 필요가 있습니다.", "tags": ["Automated Delivery", "Access Control", "Exception Handling", "Throughput"], "req_ids": ["v1-1"], "requirements": [{"id": "v1-1", "source": "출처 1. 충남대병원, 자율주행 약제 이송 로봇 2호 '드림이' 도입 (연합뉴스, 2026.06.17)", "requirement_text": "로봇은 원내 약국에서 병동까지 정규 약제를 자동으로 배송하여, 지원인력과 간호사가 반복적으로 약국을 오가는 업무를 대체할 수 있어야 한다", "ambiguous_terms": [{"term": "정규 약제", "issue": "대상 약제 종류·마약류/냉장 포함 여부 불명확"}, {"term": "자동으로", "issue": "사람 개입 범위(적재·인계·문/엘리베이터) 불명확"}, {"term": "배송", "issue": "완료 기준(인계 대상·수령 확인 방식) 불명확"}, {"term": "병동까지", "issue": "목적지 단위(병동/간호스테이션/병실) 불명확"}, {"term": "대체할 수 있어야", "issue": "대체 비율·성능 목표가 정량화되지 않음"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "배송 대상 약제 범위(마약류·향정·냉장·응급 제외 여부)와 적재 용량·보관 조건"}, {"rank": 2, "priority": "P0", "category": "검증기준", "item": "배송 완료 판정 기준(인계 대상자, 본인확인·수령 서명 방식)"}, {"rank": 3, "priority": "P0", "category": "권한", "item": "약제함 잠금 해제 권한 및 인증 수단(간호사·약사 식별)"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "수령자 부재·경로 차단·배터리 부족·오배송 시 처리 절차와 약제 회수 방식"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "1회 배송 소요시간·일일 처리 건수·정시 도착률 등 대체 목표치"}], "revised_requirement": "로봇은 [배송 허용 약제 범위]를 원내 약국에서 [지정 인계 지점]까지 운반하고, [인증된 수령자]의 [수령 확인 수단]을 통해 인계가 확인된 경우에만 배송 완료로 처리해야 한다. [배송 예외 상황] 발생 시 약제함은 잠금을 유지한 채 [예외 처리 절차]에 따라 회수·재배송되어야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "마약류·향정·냉장 약제를 배송 범위에 포함할 것인가?"}, {"rank": 2, "priority": "P0", "question": "약제함 잠금 해제 인증 수단은 무엇으로 할 것인가?"}, {"rank": 3, "priority": "P0", "question": "수령자 부재·경로 차단·배터리 부족 시 회수 절차는 어떻게 할 것인가?"}, {"rank": 4, "priority": "P1", "question": "문·엘리베이터 통과를 로봇이 자율 수행할 것인가, 사람이 개입할 것인가?"}, {"rank": 5, "priority": "P1", "question": "1회 배송 소요시간과 일일 처리 건수 목표치는 얼마인가?"}, {"question": "배송 완료로 인정하는 인계 대상자와 본인확인·수령 서명 방식은 무엇인가?", "priority": "P0", "rank": 6, "added": true}, {"question": "약제함 잠금 해제 권한을 가진 역할(간호사·약사 등)과 권한 부여 기준은 무엇인가?", "priority": "P0", "rank": 7, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 배송 허용 약제 범위에 해당하는 약제만 배송 대상으로 처리되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "인증된 수령자의 수령 확인이 있는 경우에만 약제함 잠금이 해제되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "인계 확인이 완료된 경우에만 배송 완료로 처리되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "배송 예외 상황에서 약제함이 잠금 상태를 유지하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "예외 발생 시 정의된 절차에 따라 회수 또는 재배송이 수행되는지 확인"}], "placeholder_links": [0, -1, -1, 1, 2, 2], "task_category": "Delivery", "similar": [{"other_id": "v5-1", "topic": "배송 예외처리 및 수령확인", "er_pairs": [[1, 2], [2, 3]]}], "traceability": {"mi_to_er": [[0], [1, 5], [1, 6], [2, 3], [4]], "ac_to_mi": [[0], [1, 2], [1], [3], [3]], "ac_to_er": [[0], [1], [1], [2], [2, 3]]}, "basis": [{"type": "S", "why": "원문 '정규 약제' — 마약류·냉장 약제 포함 여부 미정의", "route": "P"}, {"type": "I", "why": "원문에 인계 확인 방식 언급 없음 — 약제 인계 특성에서 추론", "route": "P"}, {"type": "I", "why": "원문에 잠금·인증 언급 없음 — 약제 보안 관점에서 추론", "route": "B"}, {"type": "I", "why": "원문에 예외 상황 언급 없음 — 원내 배송 운영에서 추론", "route": "P"}, {"type": "S", "why": "원문 '업무를 대체' — 대체 판단 기준(목표치)이 없음", "route": "P"}], "product": [{"ai": "common", "label": "약제함 잠금 해제 인증", "group": "rbac"}, {"ai": "common", "label": "인계 확인 기반 배송 완료 처리", "group": "state"}, {"ai": "config", "label": "1회 배송 시간·일일 처리 목표"}, {"ai": "custom", "label": "병원별 배송 허용 약제 범위·인계 지점"}], "er_route": ["P", "E", "P", "P", "P", "P", "P"]}]}, {"case_type": "risk", "id": "goseong-cobot", "source_prefix": "출처 1.", "title": "경남 고성 협동로봇 사고", "date_label": "2023년", "news_outlet": "경향신문", "news_date": "2023.11.08", "news_url": "https://www.khan.co.kr/article/202311081103001", "summary": "협동로봇이 작업자를 상자로 착각해 컨베이어벨트에 밀착시켜 사망.", "case_tag": "사람/작업 대상 오인 · 수동정지/안전정지 검토", "core_point": "사람이 작업영역에 있는 상태에서 로봇이 정지하지 않고 동작해 사망 사고로 이어짐.", "tags": ["Human Detection", "Manual Stop / Safe Stop", "Priority Rule", "Restart Condition"], "req_ids": ["1-1", "1-2", "1-3"], "requirements": [{"id": "1-1", "source": "출처 1. 2023년 경남 고성 파프리카 선별장 협동로봇 사망 사고", "requirement_text": "비상상황에서 작동을 수동으로 중단하는 절차가 필요하다", "ambiguous_terms": [{"term": "비상상황", "issue": "판정 조건·트리거가 정의되지 않음"}, {"term": "작동", "issue": "중단 대상 기능·범위가 불명확"}, {"term": "수동으로", "issue": "조작 주체와 조작 수단이 불명확"}, {"term": "중단", "issue": "목표 정지 상태와 완료 기준이 불명확"}, {"term": "절차", "issue": "문서인지 시스템 기능인지 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "비상상황 판정 조건 및 중단 트리거 정의"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "중단 대상 기능·설비 범위"}, {"rank": 3, "priority": "P0", "category": "상태", "item": "중단 완료 시 목표 정지 상태와 유지 항목"}, {"rank": 4, "priority": "P0", "category": "성능", "item": "중단 명령 후 정지 완료 허용 시간"}, {"rank": 5, "priority": "P1", "category": "권한", "item": "중단 조작 주체·수단 및 재가동 승인 권한"}], "revised_requirement": "시스템은 [정의된 비상 조건] 발생 시 [권한 사용자]가 [수동 중단 수단]으로 [중단 대상 설비·기능]을 [목표 정지 상태]로 전환할 수 있어야 한다. 중단 상태는 자동 해제되지 않으며, [재가동 조건과 승인 권한]이 충족된 경우에만 정상 운전으로 복귀해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "비상상황 판정 트리거는 어떤 신호·조건으로 검출하는가?"}, {"rank": 2, "priority": "P0", "question": "중단 대상 설비·기능의 범위는 어디까지인가?"}, {"rank": 3, "priority": "P0", "question": "정지 방식과 목표 정지 상태에서 유지할 항목은 무엇인가?"}, {"rank": 4, "priority": "P0", "question": "중단 명령 후 허용 정지 완료 시간은 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "전원·통신 이상 시 수동 중단 수단을 어떻게 동작시킬 것인가?"}, {"question": "수동 중단 조작 주체와 재가동 승인 권한은 누구에게 부여하는가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 비상 조건 발생 시 권한 사용자가 수동 중단 수단으로 대상 설비를 중단시킬 수 있는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "중단 명령 시 대상 설비·기능이 정의된 목표 정지 상태로 전환되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "중단 상태가 자동으로 해제되지 않는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "정의된 재가동 조건과 승인 권한이 충족된 경우에만 정상 운전으로 복귀하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "전원·통신 이상 상황에서도 수동 중단 수단이 유효하게 동작하는지 확인"}], "placeholder_links": [0, -1, 4, 1, 2, -1], "task_category": "Human Safety", "similar": [{"other_id": "3-3", "topic": "정지 판정·방식·시간 기준", "er_pairs": [[0, 0], [2, 3], [3, 1]]}, {"other_id": "4-3", "topic": "이상상황 대응 방식 및 허용시간", "er_pairs": [[2, 3], [3, 4], [4, 2]]}], "traceability": {"mi_to_er": [[0], [1], [2], [3], [4, 5]], "ac_to_mi": [[0, 1, 4], [2], [4], [4], [4]], "ac_to_er": [[0, 1, 4], [2], [], [], [4]]}, "basis": [{"type": "S", "why": "원문 '비상상황' — 판정 조건이 정의되지 않음", "route": "E"}, {"type": "I", "why": "원문에 중단 범위 언급 없음 — 설비 구성에서 추론", "route": "P"}, {"type": "I", "why": "원문에 정지 상태 언급 없음 — 안전 정지 관점에서 추론", "route": "E"}, {"type": "I", "why": "원문에 정지 시간 언급 없음 — 안전 정지 관점에서 추론", "route": "E"}, {"type": "S", "why": "원문 '수동으로 중단' — 조작 주체·수단 없음", "route": "P"}], "product": [{"ai": "common", "label": "수동 중단·재가동 승인", "group": "stop"}, {"ai": "config", "label": "정지 완료 허용 시간"}, {"ai": "custom", "label": "현장별 중단 대상 설비 범위"}], "er_route": ["E", "P", "E", "E", "E", "P"]}, {"id": "1-2", "source": "출처 1. 2023년 경남 고성 파프리카 선별장 협동로봇 사망 사고", "requirement_text": "사람과 상자가 같이 있는 상황에서 사람 중심으로 고려해야 하지만 상황에 따라 어느 것을 기준으로 두고 움직일지 정의가 필요하다", "ambiguous_terms": [{"term": "같이 있는 상황", "issue": "동시 검출 판정 기준(거리·시야·시간)이 불명확"}, {"term": "사람 중심으로 고려", "issue": "우선순위 처리 방식과 결과 동작이 불명확"}, {"term": "상황에 따라", "issue": "분기 조건 목록이 정의되지 않음"}, {"term": "어느 것을 기준으로 두고", "issue": "기준 대상 선택 규칙이 미정"}, {"term": "움직일지", "issue": "대상 거동(주행·정지·회피) 범위가 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "사람·상자 동시 검출 판정 기준(거리·각도·지속시간)"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "사람 우선/상자 기준 전환 상황 목록과 분기 규칙"}, {"rank": 3, "priority": "P0", "category": "상태", "item": "기준 대상별 로봇 거동 정의(감속·정지·회피·우회)"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "사람·상자 오분류 및 검출 실패 시 기본 동작"}, {"rank": 5, "priority": "P1", "category": "검증기준", "item": "기준 선택 정확도 및 안전거리 확보 판정 기준"}], "revised_requirement": "시스템은 [사람·상자 동시 검출 조건]이 성립하면 [정의된 분기 상황 목록]에 따라 기준 대상을 선택하되, 기본값은 사람을 우선하여 [기준 대상별 거동]을 수행해야 한다. 대상 분류가 불확실하거나 검출에 실패한 경우에는 사람으로 간주하여 [안전 기본 동작]을 수행해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "사람·상자 동시 검출은 어떤 거리·각도·지속시간 기준으로 판정하는가?"}, {"rank": 2, "priority": "P0", "question": "사람 우선에서 상자 기준으로 전환되는 상황은 무엇인가?"}, {"rank": 3, "priority": "P0", "question": "기준 대상별 거동(감속·정지·회피·우회)은 어떻게 구분하는가?"}, {"rank": 4, "priority": "P0", "question": "분류 불확실·검출 실패 시 기본 동작은 무엇으로 하는가?"}, {"rank": 5, "priority": "P1", "question": "기준 선택 정확도와 안전거리 확보의 합격 기준은 얼마인가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "사람과 상자가 동시에 검출된 경우 정의된 조건 판정에 따라 동시 검출 상황으로 인식하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "기본 상태에서 사람을 기준 대상으로 우선 선택하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "정의된 분기 상황에 해당할 때만 상자를 기준 대상으로 전환하는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "선택된 기준 대상에 대해 정의된 거동을 수행하는지 확인"}, {"rank": 5, "priority": "P0", "criterion": "대상 분류가 불확실하거나 검출에 실패한 경우 사람으로 간주해 안전 기본 동작을 수행하는지 확인"}], "placeholder_links": [0, 1, 2, 3], "task_category": "Human Safety", "similar": [{"other_id": "4-3", "topic": "충돌 회피 대응 및 안전거리 기준", "er_pairs": [[2, 3], [3, 2], [4, 4]]}, {"other_id": "4-1", "topic": "위험 감지 시 거동 결정", "er_pairs": [[2, 1], [3, 3]]}], "traceability": {"mi_to_er": [[0], [1], [2], [3], [4]], "ac_to_mi": [[0], [1], [1], [2], [3]], "ac_to_er": [[0], [1], [1], [2], [3]]}, "basis": [{"type": "S", "why": "원문 '사람과 상자가 같이 있는 상황' — 판정 기준 없음", "route": "E"}, {"type": "S", "why": "원문 '상황에 따라' — 분기 상황 목록 없음", "route": "P"}, {"type": "I", "why": "원문에 거동 유형 언급 없음 — 협동로봇 동작에서 추론", "route": "E"}, {"type": "S", "why": "사고 원인(작업자를 상자로 오인)에 직접 대응", "route": "E"}, {"type": "I", "why": "원문에 정확도 기준 언급 없음 — 검증 관점에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "분류 불확실 시 사람으로 간주하는 안전 기본 동작", "group": "proximity"}, {"ai": "config", "label": "동시 검출 거리·각도·지속시간"}, {"ai": "custom", "label": "현장별 분기 상황 목록(작업물 유형)"}], "er_route": ["E", "P", "E", "E", "E"]}, {"id": "1-3", "source": "출처 1. 2023년 경남 고성 파프리카 선별장 협동로봇 사망 사고", "requirement_text": "사람과 사람이 아닌 것을 정확히 구분하는 기준을 관리할 수 있어야 한다", "ambiguous_terms": [{"term": "정확히", "issue": "정확도 지표·허용 오류율 기준 없음"}, {"term": "사람이 아닌 것", "issue": "대상 범위와 분류 항목이 정의되지 않음"}, {"term": "구분", "issue": "판정 방식과 출력 형태가 불명확"}, {"term": "기준", "issue": "임계값·규칙·모델 중 무엇인지 불명확"}, {"term": "관리", "issue": "조회/수정/이력·권한 범위가 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "검증기준", "item": "사람/비사람 판정 정확도 지표와 오탐·미탐 허용 한계치"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "판정 대상 입력 범위와 비사람 분류 항목 목록"}, {"rank": 3, "priority": "P0", "category": "조건", "item": "관리 대상 기준의 형태(임계값·규칙·모델)와 변경 가능 범위"}, {"rank": 4, "priority": "P0", "category": "권한", "item": "기준 조회·수정·배포 주체별 권한 구분"}, {"rank": 5, "priority": "P1", "category": "예외", "item": "판정 불가·저신뢰도 입력 시 처리 방식"}], "revised_requirement": "시스템은 [정의된 입력 범위] 내 대상을 사람과 [정의된 비사람 분류 항목]으로 판정하고, 그 판정에 사용되는 [관리 대상 기준 형태]를 [권한 사용자]가 조회·변경·배포할 수 있어야 한다. 판정 결과는 [정확도 지표] 기준 [값]을 충족해야 하며, [저신뢰도·판정 불가 조건]에서는 [정의된 안전 처리]를 따라야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "사람/비사람 판정의 정확도 지표와 오탐·미탐 허용 한계치는 얼마인가?"}, {"rank": 2, "priority": "P0", "question": "판정 대상 입력 범위와 비사람 분류 항목은 무엇으로 정의하는가?"}, {"rank": 3, "priority": "P0", "question": "관리 대상 기준은 임계값·규칙·모델 중 무엇이며 변경 가능 범위는 어디까지인가?"}, {"rank": 4, "priority": "P1", "question": "기준 변경 내용을 운전 중 시스템에 어떤 방식으로 배포·적용할 것인가?"}, {"rank": 5, "priority": "P1", "question": "저신뢰도 또는 판정 불가 입력 시 시스템은 어떤 상태로 동작해야 하는가?"}, {"question": "판정 기준의 조회·수정·배포 권한은 역할별로 어떻게 구분하는가?", "priority": "P0", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 입력 범위 내 대상을 사람과 비사람 분류 항목으로 판정하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "판정 결과가 확정된 정확도 지표 및 오탐·미탐 허용 한계치를 충족하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "저신뢰도 또는 판정 불가 조건에서 정의된 안전 처리로 동작하는지 확인"}, {"rank": 4, "priority": "P1", "criterion": "권한 사용자만 관리 대상 기준을 조회·변경·배포할 수 있는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "변경된 기준이 정의된 배포 절차를 통해 판정에 실제로 적용되는지 확인"}], "placeholder_links": [1, 1, 2, -1, 0, 0, 4, 4], "task_category": "Human Safety", "similar": [{"other_id": "4-2", "topic": "인식 정확도 및 예외 처리 기준", "er_pairs": [[0, 2], [4, 4]]}], "traceability": {"mi_to_er": [[0], [1], [2], [5], [4]], "ac_to_mi": [[1], [0], [4], [3], [2]], "ac_to_er": [[1], [0], [4], [], [2, 3]]}, "basis": [{"type": "S", "why": "원문 '정확히 구분' — 정확도 기준 없음", "route": "E"}, {"type": "I", "why": "원문에 입력 범위 언급 없음 — 판정 시스템 구조에서 추론", "route": "P"}, {"type": "S", "why": "원문 '기준을 관리' — 관리 대상 기준의 형태 미정의", "route": "E"}, {"type": "I", "why": "원문에 관리 주체 언급 없음 — 운영 권한 관점에서 추론", "route": "P"}, {"type": "I", "why": "원문에 판정 불가 상황 언급 없음 — 일반 예외로 추론", "route": "E"}], "product": [{"ai": "common", "label": "저신뢰도 판정 시 안전 처리", "group": "lowconf"}, {"ai": "common", "label": "판정 기준 조회·변경·배포 권한", "group": "rbac"}, {"ai": "config", "label": "오탐·미탐 허용 한계치"}, {"ai": "custom", "label": "현장별 비사람 분류 항목"}], "er_route": ["E", "P", "E", "E", "E", "P"]}]}, {"case_type": "risk", "id": "songdo-delivery", "source_prefix": "출처 2.", "title": "인천 송도 배달로봇 충돌", "date_label": "2024.12.3 사고 / 2024.12.18 보도", "news_outlet": "연합뉴스", "news_date": "2024.12.18", "news_url": "https://www.yna.co.kr/view/AKR20241218160000065", "summary": "자율주행 로직은 적신호 시 정지하도록 설계됐으나, 관제사가 원격조종으로 개입해 적신호 상태에서 횡단보도를 건너다 승용차와 충돌. 충돌 후에도 원격조종 중 로봇이 한 번 더 움직여 2차 손상 발생.", "case_tag": "원격조종 개입 · 안전 로직 우회", "core_point": "자율주행 안전 로직이 있었지만 사람의 원격 개입이 이를 우회할 수 있었고, 개입 중 안전 규칙이 유지되지 않음.", "tags": ["Teleoperation", "Override", "Permission", "Safety Interlock"], "req_ids": ["2-1", "2-2", "2-3"], "requirements": [{"id": "2-1", "source": "출처 2. 인천 송도 배달로봇-승용차 충돌 (연합뉴스, 2024.12.18 보도, 사고 발생 12.3)", "requirement_text": "로봇은 원격 조종 상태에서도 신호등 규정을 위반해서 이동해서는 안 된다", "ambiguous_terms": [{"term": "원격 조종 상태", "issue": "자율/수동 전환 조건 및 상태 판정 기준 미정의"}, {"term": "신호등 규정", "issue": "적용 법규·신호 종류(보행/차량) 범위 불명확"}, {"term": "위반", "issue": "정지선·진입시점 등 판정 기준 부재"}, {"term": "이동", "issue": "주행·회전·미소 이동 포함 범위 불명확"}, {"term": "해서는 안 된다", "issue": "금지 시 시스템 동작(정지·경고·차단) 미정의"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "신호 인식 수단과 신호 상태 판정 기준(적색·황색·점멸 포함)"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "위반 예상 시 시스템 동작(정지·감속·명령 차단)과 정지 위치"}, {"rank": 3, "priority": "P0", "category": "예외", "item": "신호 인식 실패·통신 지연/두절 시 기본 동작(fail-safe)"}, {"rank": 4, "priority": "P1", "category": "권한", "item": "긴급차량 양보·교통경찰 수신호 등 조종자 오버라이드 허용 조건과 권한"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "신호 인지부터 정지 완료까지 허용 응답시간 및 정지거리"}], "revised_requirement": "로봇은 [원격 조종 상태]를 포함한 모든 운행 모드에서 [적용 신호 규정]에 따른 [정지 신호 상태]를 판정하고, 위반이 예상되면 조종 명령과 무관하게 [정지 기준 위치] 이전에 정지해야 한다. 신호 인식 실패·통신 이상 시에는 [기본 안전 동작]을 수행하며, [허용된 오버라이드 조건과 권한]에서만 예외 이동을 허용한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "신호 상태는 어떤 수단으로 인식하고 판정하는가?"}, {"rank": 2, "priority": "P0", "question": "위반 예상 시 정지·감속·명령 차단 중 무엇을 적용하는가?"}, {"rank": 3, "priority": "P0", "question": "신호 인식 실패·통신 두절 시 기본 동작은 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "신호 인지부터 정지 완료까지 허용 응답시간과 정지거리는 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "수신호·긴급차량 상황의 오버라이드는 어떻게 구현하는가?"}, {"question": "조종자 오버라이드를 허용하는 상황(긴급차량 양보·수신호 등)과 승인 권한은 무엇인가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "원격 조종을 포함한 모든 운행 모드에서 정지 신호 상태를 판정하는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "위반이 예상되면 조종 명령과 무관하게 정지 기준 위치 이전에 정지하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "신호 인식 실패 또는 통신 이상 시 정의된 기본 안전 동작을 수행하는지 확인"}, {"rank": 4, "priority": "P1", "criterion": "허용된 오버라이드 조건과 권한이 충족된 경우에만 예외 이동이 허용되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "신호 인지부터 정지 완료까지 확정된 응답시간·정지거리 기준을 충족하는지 확인"}], "placeholder_links": [-1, -1, 0, 3, 2, 4], "task_category": "Remote Operation", "similar": [], "traceability": {"mi_to_er": [[0], [1], [2], [4, 5], [3]], "ac_to_mi": [[0], [1], [2], [3], [4]], "ac_to_er": [[0], [1], [2], [4], [3]]}, "basis": [{"type": "S", "why": "원문 '신호등 규정' — 인식 수단·판정 기준 미정의", "route": "E"}, {"type": "S", "why": "사고 사실: 원격 조종으로 적신호 횡단 — 명령 차단 여부 결정 필요", "route": "E"}, {"type": "I", "why": "원문에 인식 실패 언급 없음 — fail-safe 관점에서 추론", "route": "E"}, {"type": "I", "why": "원문에 예외 상황 언급 없음 — 도로 운영 관점에서 추론", "route": "P"}, {"type": "I", "why": "원문에 응답시간 언급 없음 — 정지 성능 관점에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "정지 신호 시 조종 명령 차단", "group": "override"}, {"ai": "config", "label": "정지 응답시간·정지거리"}, {"ai": "custom", "label": "운행 지역 신호 규정·오버라이드 허용 조건"}], "er_route": ["E", "E", "E", "E", "E", "P"]}, {"id": "2-2", "source": "출처 2. 인천 송도 배달로봇-승용차 충돌 (연합뉴스, 2024.12.18 보도, 사고 발생 12.3)", "requirement_text": "사고(충돌) 발생 직후에는 원격 조종을 포함해 로봇의 추가 이동을 제한해야 한다", "ambiguous_terms": [{"term": "사고(충돌) 발생", "issue": "충돌 판정 기준·감지 방식이 정의되지 않음"}, {"term": "직후", "issue": "적용 시점과 지속 시간이 불명확"}, {"term": "원격 조종을 포함해", "issue": "포함되는 제어 경로 범위가 불명확"}, {"term": "추가 이동", "issue": "대상 동작(주행·관절·회전) 범위가 불명확"}, {"term": "제한", "issue": "정지·감속·금지 중 목표 상태와 해제 조건이 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "충돌 판정 기준(센서 종류·임계값)과 오탐 처리"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "이동 제한 진입 시 목표 상태(즉시정지·감속정지)와 유지 항목"}, {"rank": 3, "priority": "P0", "category": "권한", "item": "제한 해제 주체·절차 및 재가동 승인 조건"}, {"rank": 4, "priority": "P1", "category": "예외", "item": "2차 위험 회피를 위한 예외 이동 허용 범위"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "충돌 감지부터 이동 차단까지 허용 응답 시간"}], "revised_requirement": "시스템은 [정의된 충돌 판정 조건] 감지 시 [값] 이내에 원격 조종을 포함한 [제어 경로 전체]의 [제한 대상 동작]을 차단하고 로봇을 [목표 안전 상태]로 전환해야 한다. 이동 제한은 자동으로 해제되지 않으며, [권한 사용자]의 [재가동 승인 절차]가 완료된 경우에만 해제되고 [2차 위험 회피용 예외 이동]만 허용한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "충돌 판정에 사용할 센서와 임계값은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "오탐 발생 시 판정 로직은 어떻게 처리할 것인가?"}, {"rank": 3, "priority": "P0", "question": "이동 제한 진입 시 목표 상태는 즉시정지인가 감속정지인가?"}, {"rank": 4, "priority": "P1", "question": "충돌 감지부터 이동 차단까지 허용 응답 시간은 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "원격 조종 등 외부 제어 경로는 어떤 방식으로 차단할 것인가?"}, {"question": "이동 제한 해제 주체와 재가동 승인 절차는 무엇인가?", "priority": "P0", "rank": 6, "added": true}, {"question": "2차 위험 회피를 위한 예외 이동을 허용하는 상황과 판단 주체는 누구인가?", "priority": "P1", "rank": 7, "added": true}, {"question": "예외 이동 시 허용 속도·이동 거리 한계는 얼마인가?", "priority": "P1", "rank": 8, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 충돌 판정 조건 감지 시 로봇이 목표 안전 상태로 전환되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "원격 조종을 포함한 모든 제어 경로의 이동 명령이 차단되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "이동 제한 상태가 자동으로 해제되지 않는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "권한 사용자의 재가동 승인 절차가 완료된 경우에만 제한이 해제되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "제한 상태에서 2차 위험 회피용 예외 이동만 허용되는지 확인"}], "placeholder_links": [0, 3, 4, -1, 2, -1, -1, -1], "task_category": "Human Safety", "similar": [{"other_id": "3-3", "topic": "사고 감지 및 정지 대응 기준", "er_pairs": [[0, 0], [3, 1], [2, 3]]}, {"other_id": "1-1", "topic": "정지 방식과 허용 응답시간 기준", "er_pairs": [[2, 2], [3, 3]]}], "traceability": {"mi_to_er": [[0, 1], [2], [5], [6, 7], [3]], "ac_to_mi": [[0, 1], [1], [2], [2], [3]], "ac_to_er": [[0, 1, 2], [4], [], [], []]}, "basis": [{"type": "S", "why": "원문 '사고(충돌) 발생 직후' — 충돌 판정 기준 없음", "route": "E"}, {"type": "S", "why": "사고 사실: 충돌 후 원격 조종으로 추가 이동해 2차 손상", "route": "E"}, {"type": "I", "why": "원문에 해제 절차 언급 없음 — 재가동 통제 관점에서 추론", "route": "P"}, {"type": "I", "why": "원문은 '이동 제한'만 언급 — 2차 위험 회피 예외는 추론", "route": "B"}, {"type": "I", "why": "원문 '직후' — 허용 응답 시간 기준은 추론", "route": "E"}], "product": [{"ai": "common", "label": "충돌 후 이동 제한·승인 후 해제", "group": "stop"}, {"ai": "common", "label": "원격 조종 포함 제어 경로 차단", "group": "override"}, {"ai": "config", "label": "충돌 판정 임계값·차단 응답 시간"}, {"ai": "custom", "label": "운영 환경별 예외 이동 허용 범위"}], "er_route": ["E", "E", "E", "E", "E", "P", "P", "E"]}, {"id": "2-3", "source": "출처 2. 인천 송도 배달로봇-승용차 충돌 (연합뉴스, 2024.12.18 보도, 사고 발생 12.3)", "requirement_text": "관제사가 원격 조종으로 개입하는 경우의 트리거 조건과 권한 범위를 정의해야 한다", "ambiguous_terms": [{"term": "개입", "issue": "개입 수준·대상 기능 범위가 불명확"}, {"term": "트리거 조건", "issue": "판정 주체·임계값·검출 방식 미정의"}, {"term": "권한 범위", "issue": "허용 조작 목록과 제한 기준 불명확"}, {"term": "원격 조종", "issue": "통신 수단·지연 허용치·제어 대상 불명확"}, {"term": "관제사", "issue": "자격·인원수·다중 관제 시 우선순위 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "원격 개입 트리거 판정 주체·임계값·검출 방식"}, {"rank": 2, "priority": "P0", "category": "권한", "item": "관제사 자격 요건과 허용 조작 목록·제한 범위"}, {"rank": 3, "priority": "P0", "category": "상태", "item": "자율주행↔원격조종 제어권 전환 절차 및 전환 중 차량 상태"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "통신 두절·지연 초과 시 페일세이프 동작"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "허용 통신 지연·개입 응답 시간 한계값"}], "revised_requirement": "시스템은 [정의된 원격개입 트리거 조건] 충족 시 [자격을 갖춘 관제사]에게 제어권을 이관하고, [허용된 원격 조작 범위] 내에서만 [제어 대상]을 조작할 수 있어야 한다. 제어권 전환 중과 [통신 두절·지연 초과 조건] 발생 시 차량은 [정의된 페일세이프 상태]로 전환되며, [복귀 조건과 권한]이 충족된 경우에만 자율주행으로 복귀해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "원격개입 트리거의 판정 주체와 검출 방식은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "제어권 전환 절차와 전환 중 차량 거동은 어떻게 정의하는가?"}, {"rank": 3, "priority": "P0", "question": "통신 두절·지연 초과 시 페일세이프 동작은 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "허용 통신 지연과 개입 응답 시간의 한계값은 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "다중 관제사 접속 시 제어권 우선순위는 어떻게 결정하는가?"}, {"question": "원격 개입 트리거를 판정하는 주체(시스템 자동·관제사 판단)와 책임 범위는 어떻게 나누는가?", "priority": "P0", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 원격개입 트리거 조건 충족 시에만 제어권 이관이 개시되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "자격을 갖춘 관제사에게만 제어권이 부여되고 허용된 조작 범위를 벗어난 명령이 차단되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "통신 두절·지연 초과 발생 시 차량이 정의된 페일세이프 상태로 전환되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "제어권 전환 중에도 차량이 정의된 안전 거동을 유지하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "정의된 복귀 조건과 권한이 충족된 경우에만 자율주행으로 복귀하는지 확인"}], "placeholder_links": [0, -1, -1, -1, 3, 2, -1], "task_category": "Remote Operation", "similar": [], "traceability": {"mi_to_er": [[0, 5], [4], [1], [2], [3]], "ac_to_mi": [[0], [1], [3], [2], [2]], "ac_to_er": [[0], [4], [2], [1], [1]]}, "basis": [{"type": "S", "why": "원문 '트리거 조건' 정의 요구 — 판정 주체·임계값 없음", "route": "B"}, {"type": "S", "why": "원문 '권한 범위' — 허용 조작 목록 없음", "route": "P"}, {"type": "I", "why": "원문에 전환 절차 언급 없음 — 제어권 이관 흐름에서 추론", "route": "P"}, {"type": "I", "why": "원문에 통신 이상 언급 없음 — 원격 조종 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 지연 한계 언급 없음 — 원격 조종 통신 조건에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "자율↔원격 제어권 전환", "group": "handoff"}, {"ai": "common", "label": "통신 두절·지연 초과 시 페일세이프", "group": "failsafe"}, {"ai": "config", "label": "허용 통신 지연·개입 응답 시간"}, {"ai": "custom", "label": "관제사 자격 요건·허용 조작 목록"}], "er_route": ["E", "P", "E", "E", "P", "P"]}]}, {"case_type": "risk", "id": "ocado-erith", "source_prefix": "출처 3.", "title": "Ocado Erith 물류로봇 화재", "date_label": "2021년", "news_outlet": "로봇신문", "news_date": "2021.07.20", "news_url": "https://www.irobotnews.com/news/articleView.html?idxno=25697", "summary": "로봇 3대가 그리드 위에서 충돌하며 화재 발생 (인명피해 없음, 스프링클러 작동·대피).", "case_tag": "다중 로봇 플릿 충돌 · 화재 확산", "core_point": "다중 로봇 충돌 사례를 기반으로, 충돌 위험 판정·작업 중지 범위·재개 조건을 요구사항 검토 항목으로 설정했습니다.", "tags": ["Fleet Coordination", "Collision Avoidance", "Stop Scope", "Communication Fault / Recovery"], "req_ids": ["3-1", "3-2", "3-3"], "requirements": [{"id": "3-1", "source": "출처 3. 2021년 Ocado Erith 물류센터 화재", "requirement_text": "로봇 여러대가 동시에 작업하는 경우 충돌, 작업이 중지되는 상황에 어떤 것을 기준으로 삼아야하는지 기준이 필요하다", "ambiguous_terms": [{"term": "로봇 여러대", "issue": "대수 범위와 기종 구성이 불명확"}, {"term": "동시에 작업", "issue": "동시성 판정 기준과 작업 공간 중첩 정의 없음"}, {"term": "충돌", "issue": "충돌 판정 조건과 감지 기준이 불명확"}, {"term": "작업이 중지되는 상황", "issue": "중지 유발 조건과 대상 범위가 불명확"}, {"term": "기준", "issue": "우선순위 규칙인지 안전 규격인지 대상이 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "로봇 간 우선순위 결정 규칙과 적용 순서"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "충돌 위험 판정 기준(최소 이격거리·간섭영역 정의)"}, {"rank": 3, "priority": "P0", "category": "상태", "item": "중지 후 로봇별 유지 상태 및 재개 시 복귀 지점"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "동일 우선순위 충돌·교착(데드락) 발생 시 처리 방식"}, {"rank": 5, "priority": "P1", "category": "성능", "item": "충돌 감지부터 정지까지 허용 응답시간"}], "revised_requirement": "[다중 로봇 동시 작업 조건]에서 [간섭영역]과 [충돌 위험 판정 기준]을 정의하고, 이에 해당하면 [우선순위 규칙]에 따라 통과 로봇과 [중지 대상 로봇]을 결정해야 한다. 중지된 로봇은 [정의된 유지 상태]를 유지하고, [재개 조건] 충족 시 [복귀 지점]에서 작업을 재개하며 [동일 우선순위·교착 상황]은 [해소 규칙]으로 처리해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "충돌 위험 판정에 사용할 최소 이격거리와 간섭영역은 어떻게 정의하는가?"}, {"rank": 2, "priority": "P0", "question": "로봇 간 우선순위는 어떤 기준과 적용 순서로 결정하는가?"}, {"rank": 3, "priority": "P0", "question": "동일 우선순위 충돌과 교착 상태는 어떤 방식으로 해소하는가?"}, {"rank": 4, "priority": "P0", "question": "중지 후 유지 상태와 재개 시 복귀 지점은 어떻게 정의하는가?"}, {"rank": 5, "priority": "P1", "question": "충돌 감지부터 정지까지 허용 응답시간은 몇 [값]인가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "다중 로봇 동시 작업 시 정의된 간섭영역과 충돌 위험 판정 기준이 적용되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "충돌 위험 판정 시 우선순위 규칙에 따라 통과 로봇과 중지 대상 로봇이 결정되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "중지된 로봇이 정의된 유지 상태를 유지하고 자동으로 해제되지 않는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "재개 조건 충족 시에만 정의된 복귀 지점에서 작업이 재개되는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "동일 우선순위 및 교착 상황에서 해소 규칙에 따라 처리되는지 확인"}], "placeholder_links": [-1, 0, 0, 1, 1, 3, 3, 3, 2, 2], "task_category": "Fleet & Handoff", "similar": [{"other_id": "v3-1", "topic": "감지 기준과 허용시간 정의", "er_pairs": [[0, 0], [4, 4]]}], "traceability": {"mi_to_er": [[1], [0], [3], [2], [4]], "ac_to_mi": [[1], [0], [2], [2], [3]], "ac_to_er": [[0], [1], [3], [3], [2]]}, "basis": [{"type": "S", "why": "원문 '어떤 것을 기준으로 삼아야' — 우선순위 규칙 없음", "route": "P"}, {"type": "S", "why": "원문 '충돌' 기준 요구 — 이격거리·간섭영역 정의 없음", "route": "E"}, {"type": "I", "why": "원문에 중지 후 상태 언급 없음 — 재개 흐름에서 추론", "route": "E"}, {"type": "I", "why": "원문에 교착 언급 없음 — 다중 로봇 제어 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 응답시간 언급 없음 — 충돌 방지 관점에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "다중 로봇 우선순위·교착 해소", "group": "alloc"}, {"ai": "config", "label": "최소 이격거리·정지 응답시간"}, {"ai": "custom", "label": "그리드 레이아웃별 간섭영역 정의"}], "er_route": ["E", "P", "E", "E", "E"]}, {"id": "3-2", "source": "출처 3. 2021년 Ocado Erith 물류센터 화재", "requirement_text": "로봇 여러대의 통신이 지연된 경우 통신상태를 확인하고 수동, 자동으로 처리할 수 있어야 한다", "ambiguous_terms": [{"term": "여러대", "issue": "대상 로봇 수와 범위가 정의되지 않음"}, {"term": "통신이 지연된 경우", "issue": "지연 판정 임계시간·측정 기준 없음"}, {"term": "통신상태를 확인", "issue": "확인 항목과 판정 결과 정의 불명확"}, {"term": "수동, 자동으로 처리", "issue": "처리 동작 내용과 모드 전환 기준 불명확"}, {"term": "할 수 있어야 한다", "issue": "주체(시스템/운용자)와 완료 기준 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "통신 지연 판정 임계값과 측정 주기·연속 실패 횟수 기준"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "자동 처리 동작 내용(재연결, 정지, 안전위치 이동 등)과 자동·수동 모드 전환 기준"}, {"rank": 3, "priority": "P0", "category": "상태", "item": "지연 판정 중 및 처리 후 로봇의 유지 상태와 복구 완료 후 재개 조건"}, {"rank": 4, "priority": "P1", "category": "사용자", "item": "수동 처리 주체와 조작 수단(관제 UI/현장 조작기)"}, {"rank": 5, "priority": "P1", "category": "예외", "item": "다수 로봇 동시 지연·통신 완전 두절 시 처리 우선순위"}], "revised_requirement": "시스템은 [관리 대상 로봇군]의 통신 상태를 주기적으로 감시하여 [정의된 지연 판정 기준]에 해당하면 해당 로봇을 [지연 상태]로 판정하고, [자동 처리 동작]을 수행하거나 [권한 사용자]가 [조작 수단]으로 수동 처리할 수 있어야 한다. 처리된 로봇은 [복구 확인 조건]이 충족되기 전까지 안전 상태를 유지하며 자동으로 운전을 재개하지 않아야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "통신 지연 판정 임계값과 측정 주기, 연속 실패 횟수 기준은 무엇인가?"}, {"rank": 2, "priority": "P0", "question": "자동 처리 동작은 재연결, 정지, 안전위치 이동 중 무엇으로 정의하는가?"}, {"rank": 3, "priority": "P0", "question": "자동 처리와 수동 처리의 전환 기준과 우선순위는 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "통신 복구 확인 및 운전 재개 조건은 어떻게 판정하는가?"}, {"rank": 5, "priority": "P1", "question": "다수 로봇 동시 지연 또는 통신 완전 두절 시 처리 순서는 어떻게 정하는가?"}, {"question": "수동 처리 주체와 사용할 조작 수단(관제 UI·현장 조작기)은 무엇으로 정하는가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 지연 판정 기준에 해당하는 로봇이 지연 상태로 판정되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "지연 판정 시 정의된 자동 처리 동작이 수행되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "권한 사용자가 지정된 조작 수단으로 수동 처리할 수 있는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "처리된 로봇이 복구 확인 조건 충족 전까지 자동으로 운전을 재개하지 않는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "다수 로봇이 동시에 지연된 경우에도 각 로봇이 정의된 순서로 처리되는지 확인"}], "placeholder_links": [-1, 0, -1, 1, -1, -1, 3], "task_category": "Fleet & Handoff", "similar": [], "traceability": {"mi_to_er": [[0], [1, 2], [3], [5], [4]], "ac_to_mi": [[0], [1], [3], [2], [4]], "ac_to_er": [[0], [1], [2], [3], [4]]}, "basis": [{"type": "S", "why": "원문 '통신이 지연된 경우' — 판정 임계값 없음", "route": "E"}, {"type": "S", "why": "원문 '수동, 자동으로 처리' — 자동 처리 내용이 없음", "route": "P"}, {"type": "I", "why": "원문에 처리 후 상태 언급 없음 — 안전 유지 관점에서 추론", "route": "E"}, {"type": "S", "why": "원문 '수동' 처리 — 처리 주체·수단 미정의", "route": "P"}, {"type": "I", "why": "원문은 지연만 언급 — 동시 지연·완전 두절은 추론", "route": "E"}], "product": [{"ai": "common", "label": "통신 지연 감지·자동/수동 처리", "group": "failsafe"}, {"ai": "config", "label": "지연 판정 임계값·연속 실패 횟수"}, {"ai": "custom", "label": "현장별 수동 처리 주체·조작 수단"}], "er_route": ["E", "P", "P", "E", "E", "P"]}, {"id": "3-3", "source": "출처 3. 2021년 Ocado Erith 물류센터 화재", "requirement_text": "사고가 발생한 경우 로봇 작업 전체를 중지시키거나, 사고난 로봇만 중지시키는 기능이 필요하다", "ambiguous_terms": [{"term": "사고", "issue": "사고 판정 기준·감지 조건이 정의되지 않음"}, {"term": "로봇 작업 전체", "issue": "중지 대상 범위(라인/셀/전체 시스템)가 불명확"}, {"term": "사고난 로봇", "issue": "개별 로봇 식별 방법이 불명확"}, {"term": "중지", "issue": "정지 유형(즉시/정상 정지)과 완료 상태가 불명확"}, {"term": "기능", "issue": "자동 동작인지 수동 조작인지, 판단 주체 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "전체 중지와 개별 로봇 중지의 선택 기준(사고 등급별 분기 규칙)"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "중지 후 로봇 상태(전원·브레이크·작업물 유지 여부)와 복귀 절차"}, {"rank": 3, "priority": "P0", "category": "예외", "item": "중지 명령 실패·통신 두절·센서 오검지 시 대체 동작"}, {"rank": 4, "priority": "P0", "category": "성능", "item": "사고 감지부터 정지 완료까지 허용 시간 및 정지 거리"}, {"rank": 5, "priority": "P1", "category": "권한", "item": "중지 실행 및 재가동 승인 주체와 권한 등급"}], "revised_requirement": "시스템은 [정의된 사고 조건] 감지 시 [사고 등급별 분기 규칙]에 따라 [전체 중지 범위] 또는 [식별된 개별 로봇]을 [정지 유형]으로 안전 상태로 전환해야 한다. 중지 상태는 자동으로 해제되지 않으며, [재가동 조건과 승인 권한]이 충족된 경우에만 정상 운전으로 복귀해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "사고 감지 조건과 등급 판정 기준을 무엇으로 정의할 것인가?"}, {"rank": 2, "priority": "P0", "question": "사고 감지부터 정지 완료까지 허용 시간과 정지 거리는 얼마인가?"}, {"rank": 3, "priority": "P0", "question": "중지 명령 실패·통신 두절·센서 오검지 시 대체 동작은 무엇인가?"}, {"rank": 4, "priority": "P1", "question": "정지 유형과 중지 후 전원·브레이크·작업물 유지 상태를 어떻게 할 것인가?"}, {"rank": 5, "priority": "P1", "question": "개별 로봇 식별 및 선택적 중지를 어떤 방식으로 구현할 것인가?"}, {"question": "중지 실행과 재가동 승인 주체, 권한 등급은 어떻게 정하는가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 사고 조건이 감지되면 대상 로봇이 정의된 안전 상태로 전환되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "사고 등급별 분기 규칙에 따라 전체 중지와 개별 로봇 중지가 구분 적용되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "개별 중지 시 대상 로봇이 정확히 식별되고 비대상 로봇이 영향받지 않는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "중지 상태가 자동으로 해제되지 않는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "정의된 재가동 조건과 승인 권한이 충족된 경우에만 정상 운전으로 복귀하는지 확인"}], "placeholder_links": [0, 0, -1, 4, 3, -1], "task_category": "Human Safety", "similar": [{"other_id": "1-1", "topic": "정지 판정·방식·시간 기준", "er_pairs": [[0, 0], [3, 2], [1, 3]]}, {"other_id": "2-2", "topic": "사고 감지 및 정지 대응 기준", "er_pairs": [[0, 0], [1, 3], [3, 2]]}], "traceability": {"mi_to_er": [[0], [3], [2], [1], [5]], "ac_to_mi": [[0, 3], [0], [], [1], [4]], "ac_to_er": [[0, 1], [0], [4], [], []]}, "basis": [{"type": "S", "why": "원문 '전체 또는 사고난 로봇만' — 선택 기준 없음", "route": "P"}, {"type": "I", "why": "원문에 중지 후 상태 언급 없음 — 화재 사례 특성에서 추론", "route": "E"}, {"type": "I", "why": "원문에 중지 실패 언급 없음 — 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 정지 시간 언급 없음 — 안전 정지 관점에서 추론", "route": "E"}, {"type": "I", "why": "원문에 권한 언급 없음 — 재가동 통제 관점에서 추론", "route": "P"}], "product": [{"ai": "common", "label": "전체/개별 중지·재가동 승인", "group": "stop"}, {"ai": "config", "label": "정지 완료 허용 시간·정지 거리"}, {"ai": "custom", "label": "사고 등급 분류 기준"}], "er_route": ["P", "E", "E", "E", "E", "P"]}]}, {"case_type": "risk", "id": "starship-pedestrian", "source_prefix": "출처 4.", "title": "Starship 배달로봇 보행자 충돌", "date_label": "2026.07.30", "news_outlet": "FOX 10 Phoenix", "news_date": "2026.07.30", "news_url": "https://www.fox10phoenix.com/news/delivery-robot-disaster-asu-worker-says-food-delivering-rover-ran-her-down-campus-new-lawsuit", "summary": "피해자가 제기한 소송 보도 기준: 로봇이 방향을 갑자기 바꾸며 보행자를 넘어뜨린 뒤, 쓰러진 사람 쪽으로 다시 후진했다고 주장 (미국 애리조나주립대 캠퍼스).", "case_tag": "보행자 충돌 · 후진 재접근", "core_point": "보행자 충돌 후 로봇이 다시 접근했다는 소송 주장을 바탕으로, 측·후방 감지와 이동 재개 조건을 검토했습니다.", "tags": ["Human Detection", "Rear/Side Sensing", "Re-scan Before Move", "Speed / Stop Control"], "req_ids": ["4-1", "4-2", "4-3"], "requirements": [{"id": "4-1", "source": "출처 4. Starship 배달로봇 보행자 충돌 소송 보도 (FOX 10 Phoenix, 2026.07.30)", "requirement_text": "로봇은 사람이 접근가능한 위치에 있는 경우 속도를 늦추거나 멈출 수 있어야 한다", "ambiguous_terms": [{"term": "사람이 접근가능한 위치", "issue": "거리·영역 기준과 판정 방법이 정의되지 않음"}, {"term": "접근가능한", "issue": "실제 접근인지 잠재적 접근 가능성인지 불명확"}, {"term": "속도를 늦추거나", "issue": "감속 목표 속도와 감속률 기준 없음"}, {"term": "멈출 수 있어야 한다", "issue": "정지 종류(정지 범주)와 정지 시간 기준 불명확"}, {"term": "늦추거나 멈출", "issue": "둘 중 선택 조건이 불명확해 검증 기준 성립 안 됨"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "사람 감지 영역 구분(경고영역/정지영역)과 각 영역의 거리 임계값"}, {"rank": 2, "priority": "P0", "category": "조건", "item": "감속과 정지의 선택 기준(거리·상대속도별 전환 조건)"}, {"rank": 3, "priority": "P0", "category": "성능", "item": "감지부터 감속·정지 완료까지 허용 응답시간 및 정지거리"}, {"rank": 4, "priority": "P0", "category": "예외", "item": "센서 고장·감지 실패·오감지 시의 동작(페일세이프)"}, {"rank": 5, "priority": "P1", "category": "상태", "item": "사람 이탈 후 정상속도 복귀 조건 및 복귀 주체"}], "revised_requirement": "로봇은 [정의된 사람 감지 영역]에서 사람이 감지되면 해당 영역 기준에 따라 [제한 속도]로 감속하거나 [정지 방식]으로 정지해야 한다. 감지 기능이 상실된 경우 로봇은 안전 상태를 유지해야 하며, 사람 이탈 후에는 [복귀 조건과 주체]가 충족된 경우에만 정상 속도로 복귀해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "경고영역과 정지영역의 거리 임계값은 각각 얼마인가?"}, {"rank": 2, "priority": "P0", "question": "감속과 정지를 구분하는 전환 조건은 무엇인가?"}, {"rank": 3, "priority": "P0", "question": "감지부터 감속·정지 완료까지 허용 응답시간과 정지거리는 얼마인가?"}, {"rank": 4, "priority": "P0", "question": "센서 고장·오감지 시 페일세이프 동작은 무엇으로 할 것인가?"}, {"rank": 5, "priority": "P1", "question": "감속 시 제한 속도와 정지 범주는 무엇으로 할 것인가?"}, {"question": "사람 이탈 후 정상 속도 복귀를 자동으로 할 것인가, 사람이 승인할 것인가?", "priority": "P1", "rank": 6, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 감지 영역에서 사람이 감지되면 해당 영역 기준에 따라 감속 또는 정지가 수행되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "감지 시점부터 감속·정지 완료까지 확정된 응답시간과 정지거리 기준을 충족하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "감지 기능이 상실되거나 오감지된 경우 로봇이 정의된 안전 상태를 유지하는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "사람이 이탈하더라도 정상 속도로 자동 복귀하지 않는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "정의된 복귀 조건과 승인 주체가 충족된 경우에만 정상 속도로 복귀하는지 확인"}], "placeholder_links": [0, 4, 4, -1], "task_category": "Human Safety", "similar": [{"other_id": "1-1", "topic": "정지 응답시간 및 페일세이프 동작", "er_pairs": [[2, 3], [3, 4]]}, {"other_id": "1-2", "topic": "위험 감지 시 거동 결정", "er_pairs": [[1, 2], [3, 3]]}], "traceability": {"mi_to_er": [[0], [1], [2], [3], [5]], "ac_to_mi": [[0, 1], [2], [3], [4], [4]], "ac_to_er": [[0, 1, 4], [2], [3], [], []]}, "basis": [{"type": "S", "why": "원문 '사람이 접근가능한 위치' — 영역·거리 기준 없음", "route": "E"}, {"type": "S", "why": "원문 '늦추거나 멈출' — 감속·정지 선택 기준 없음", "route": "E"}, {"type": "I", "why": "원문에 응답시간 언급 없음 — 감속·정지 성능에서 추론", "route": "E"}, {"type": "I", "why": "원문에 센서 고장 언급 없음 — fail-safe 관점에서 추론", "route": "E"}, {"type": "I", "why": "원문에 복귀 조건 언급 없음 — 운행 재개 흐름에서 추론", "route": "P"}], "product": [{"ai": "common", "label": "사람 감지 시 감속·정지", "group": "proximity"}, {"ai": "config", "label": "경고·정지 영역 거리, 제한 속도"}, {"ai": "custom", "label": "운행 환경별 정상속도 복귀 주체"}], "er_route": ["E", "E", "E", "E", "E", "P"]}, {"id": "4-2", "source": "출처 4. Starship 배달로봇 보행자 충돌 소송 보도 (FOX 10 Phoenix, 2026.07.30)", "requirement_text": "로봇은 좌우뒤에 어느 위치, 거리에 보행자, 물건이 있다는 것을 파악할 수 있어야 한다", "ambiguous_terms": [{"term": "좌우뒤", "issue": "각도 범위와 기준 좌표계가 정의되지 않음"}, {"term": "어느 위치, 거리", "issue": "측정 범위·분해능·정확도 기준 없음"}, {"term": "보행자, 물건", "issue": "검출 대상의 크기·종류·최소 식별 조건 불명확"}, {"term": "파악할 수 있어야 한다", "issue": "검출률·응답시간 등 성공 판정 기준 없음"}, {"term": "있다는 것", "issue": "존재 판단만인지 추적·분류까지인지 불명확"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "검출 대상 최소 크기·형상·재질(반사특성) 및 최소 식별 조건"}, {"rank": 2, "priority": "P0", "category": "성능", "item": "검출 거리·각도 정확도, 검출률/오탐률, 갱신주기 및 최대 검출 지연시간"}, {"rank": 3, "priority": "P0", "category": "조건", "item": "보장 운용 환경(조도, 우천·먼지, 실내외, 노면 조건) 범위"}, {"rank": 4, "priority": "P1", "category": "예외", "item": "센서 가림·오염·고장·사각지대 발생 시 판정 및 축퇴 동작"}, {"rank": 5, "priority": "P1", "category": "검증기준", "item": "검출 성공 판정 시험 시나리오와 합격 기준(대상 배치·속도 조합)"}], "revised_requirement": "로봇은 [정의된 후방·측방 감지 영역] 내에서 [검출 대상 정의(보행자·장애물의 최소 크기·형상 조건)]의 존재와 상대 위치·거리를 [갱신주기] 이내로 검출할 수 있어야 한다. 검출 성능은 [보장 운용 환경] 범위에서 [검출률·정확도 기준]을 만족해야 하며, [센서 가림·고장 조건] 발생 시 검출 불가 상태로 판정하고 [축퇴 동작]을 수행해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "감지 영역의 각도 범위와 기준 좌표계를 어떻게 정의할 것인가?"}, {"rank": 2, "priority": "P0", "question": "검출 대상의 최소 크기·반사특성 조건은 무엇인가?"}, {"rank": 3, "priority": "P0", "question": "검출 거리·각도 정확도, 검출률·오탐률 기준값은 얼마인가?"}, {"rank": 4, "priority": "P0", "question": "갱신주기와 최대 허용 검출 지연시간은 얼마인가?"}, {"rank": 5, "priority": "P1", "question": "센서 가림·오염·고장 및 사각지대를 어떻게 판정하고 축퇴 동작을 정의할 것인가?"}, {"question": "검출 성능을 보장할 운용 환경(조도·우천·실내외·노면) 범위는 어디까지로 정하는가?", "priority": "P0", "rank": 6, "added": true}, {"question": "검출 성공 판정 합격 기준과 시험 시나리오(대상 배치·속도 조합)는 어떻게 정하는가?", "priority": "P1", "rank": 7, "added": true}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "정의된 후방·측방 감지 영역 내에서 검출 대상의 존재가 검출되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "검출 대상의 상대 위치와 거리가 정해진 정확도 기준을 만족하는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "검출 정보가 정의된 갱신주기 이내로 제공되는지 확인"}, {"rank": 4, "priority": "P1", "criterion": "보장 운용 환경 범위에서 검출률·오탐률 기준을 충족하는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "센서 가림·고장 발생 시 검출 불가 상태로 판정하고 정의된 축퇴 동작을 수행하는지 확인"}], "placeholder_links": [0, 1, 3, -1, 2, 4, 4], "task_category": "Human Safety", "similar": [{"other_id": "1-3", "topic": "인식 정확도 및 예외 처리 기준", "er_pairs": [[2, 0], [4, 4]]}], "traceability": {"mi_to_er": [[1], [2, 3], [5], [4], [6]], "ac_to_mi": [[0], [1], [1], [2], [3]], "ac_to_er": [[0, 1], [2], [3], [2], [4]]}, "basis": [{"type": "S", "why": "원문 '보행자, 물건'을 파악 — 검출 대상 조건 미정의", "route": "E"}, {"type": "S", "why": "원문 '어느 위치, 거리' — 정확도·검출률 기준 없음", "route": "E"}, {"type": "I", "why": "원문에 운용 환경 언급 없음 — 실외 배달 운행에서 추론", "route": "P"}, {"type": "I", "why": "원문에 센서 이상 언급 없음 — 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 검증 방법 언급 없음 — 시험 설계 관점에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "측·후방 객체 검출·검출 불가 판정", "group": "proximity"}, {"ai": "config", "label": "검출 거리·갱신주기"}, {"ai": "custom", "label": "보장 운용 환경(실내외·기상)"}], "er_route": ["E", "E", "E", "E", "E", "P", "E"]}, {"id": "4-3", "source": "출처 4. Starship 배달로봇 보행자 충돌 소송 보도 (FOX 10 Phoenix, 2026.07.30)", "requirement_text": "좌우뒤 이동을 하는 경우 주변을 충돌을 방지하기 위해 주변을 다시 감지해야 한다", "ambiguous_terms": [{"term": "좌우뒤 이동", "issue": "대상 이동 동작 정의·개시 시점 불명확"}, {"term": "주변", "issue": "감지 범위·거리·각도 미정의"}, {"term": "충돌", "issue": "충돌 판정 대상과 기준이 불명확"}, {"term": "다시 감지", "issue": "재감지 주기·시점·완료 기준 불명확"}, {"term": "방지하기 위해", "issue": "감지 후 대응 동작(정지·경고 등) 미정의"}], "missing_items": [{"rank": 1, "priority": "P0", "category": "조건", "item": "재감지 트리거 시점(이동 개시 전/이동 중)과 반복 주기"}, {"rank": 2, "priority": "P0", "category": "상태", "item": "장애물 검출 시 대응 동작(감속·정지·회피) 및 이동 재개 조건"}, {"rank": 3, "priority": "P0", "category": "예외", "item": "센서 고장·사각지대·감지 불가 시 처리 방식"}, {"rank": 4, "priority": "P1", "category": "성능", "item": "감지부터 정지까지 응답시간 및 확보 최소 안전거리"}, {"rank": 5, "priority": "P1", "category": "검증기준", "item": "충돌 방지 성공 판정 기준과 시험 시나리오"}], "revised_requirement": "시스템은 [좌·우·후방 이동 동작]의 개시 전 및 이동 중 [정의된 재감지 주기]로 [정의된 감지 영역] 내 [충돌 판정 대상]을 재감지해야 한다. 장애물이 검출되면 [정의된 대응 동작]을 수행하고, [이동 재개 조건]이 충족된 경우에만 이동을 재개해야 한다.", "engineering_review_required": [{"rank": 1, "priority": "P0", "question": "이동 방향별 감지 영역의 거리와 각도는 얼마인가?"}, {"rank": 2, "priority": "P0", "question": "재감지 주기와 트리거 시점은 어떻게 정의하는가?"}, {"rank": 3, "priority": "P0", "question": "센서 고장·사각지대 발생 시 이동을 어떻게 처리할 것인가?"}, {"rank": 4, "priority": "P1", "question": "장애물 검출 시 대응은 감속·정지·회피 중 무엇인가?"}, {"rank": 5, "priority": "P1", "question": "감지부터 정지까지 허용 응답시간과 최소 안전거리는 얼마인가?"}], "acceptance_criteria": [{"rank": 1, "priority": "P0", "criterion": "좌·우·후방 이동 개시 전에 정의된 감지 영역에 대한 재감지가 수행되는지 확인"}, {"rank": 2, "priority": "P0", "criterion": "이동 중 정의된 재감지 주기로 재감지가 지속 수행되는지 확인"}, {"rank": 3, "priority": "P0", "criterion": "감지 영역 내 충돌 판정 대상 검출 시 정의된 대응 동작이 수행되는지 확인"}, {"rank": 4, "priority": "P0", "criterion": "센서 고장 또는 감지 불가 상태에서 이동이 허용되지 않는지 확인"}, {"rank": 5, "priority": "P1", "criterion": "정의된 이동 재개 조건을 충족한 경우에만 이동이 재개되는지 확인"}], "placeholder_links": [-1, 1, 0, -1, 3, -1], "task_category": "Human Safety", "similar": [{"other_id": "1-1", "topic": "이상상황 대응 방식 및 허용시간", "er_pairs": [[3, 2], [4, 3], [2, 4]]}, {"other_id": "1-2", "topic": "충돌 회피 대응 및 안전거리 기준", "er_pairs": [[3, 2], [2, 3], [4, 4]]}], "traceability": {"mi_to_er": [[1], [3], [2], [4], [0]], "ac_to_mi": [[0], [0], [1], [2], [1]], "ac_to_er": [[1], [1], [3], [2], [3]]}, "basis": [{"type": "S", "why": "원문 '다시 감지' — 재감지 시점·주기 없음", "route": "E"}, {"type": "S", "why": "사고 사실: 방향 전환 후 쓰러진 사람 쪽으로 후진", "route": "E"}, {"type": "I", "why": "원문에 센서 고장 언급 없음 — 일반 예외로 추론", "route": "E"}, {"type": "I", "why": "원문에 응답시간 언급 없음 — 충돌 방지 관점에서 추론", "route": "E"}, {"type": "I", "why": "원문에 검증 방법 언급 없음 — 시험 설계 관점에서 추론", "route": "E"}], "product": [{"ai": "common", "label": "이동 전·중 재감지와 재개 조건", "group": "proximity"}, {"ai": "config", "label": "재감지 주기·최소 안전거리"}, {"ai": "custom", "label": "현장별 충돌 방지 시험 시나리오"}], "er_route": ["E", "E", "E", "E", "E"]}]}]}</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById('poc-data').textContent);
+  var app = document.getElementById('app');
+  var state = { view: 'home', caseId: null };
+
+  var PRIORITY_LABEL = { P0: 'P0', P1: 'P1', P2: 'P2' };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; });
+  }
+  function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
+
+  function badge(priority) {
+    var cls = 'badge-' + String(priority || 'p2').toLowerCase();
+    return '<span class="badge ' + cls + '">' + esc(PRIORITY_LABEL[priority] || priority) + '</span>';
+  }
+
+  function navHtml(current) {
+    function b(view, action, text) {
+      return '<button class="btn' + (current === view ? ' is-current' : '') + '" data-action="' + action + '">' + text + '</button>';
+    }
+    return (
+      '<div class="topnav">' +
+        '<div class="brand" data-action="go-home"><span class="brand-mark">AI Requirements Quality Gate</span></div>' +
+        '<div class="nav-actions">' +
+          b('home', 'go-home', '사례') +
+          b('matrix', 'go-matrix', '추적 매트릭스') +
+          b('eval', 'go-eval', 'AI 제안 검토') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function sortByRank(list) {
+    return (list || []).slice().sort(function (a, b) { return (a.rank || 999) - (b.rank || 999); });
+  }
+
+  function priorityLegendHtml() {
+    return (
+      '<div class="priority-legend">' +
+        '<div class="legend-row">' + badge('P0') +
+          '<span class="legend-text"><b>개발 전 필수 확인</b><span>미확정 시 구현 범위나 핵심 동작을 결정하기 어려운 항목</span></span>' +
+        '</div>' +
+        '<div class="legend-row">' + badge('P1') +
+          '<span class="legend-text"><b>설계 시 확인</b><span>요구 방향은 명확하나 상세설계를 위해 추가 결정이 필요한 항목</span></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="priority-legend axis-legend">' +
+        '<div class="axis-title">판단 근거 <span>AI가 왜 이 항목을 제안했는가</span></div>' +
+        ['S', 'I'].map(function (t) {
+          return '<div class="legend-row">' + bchip(t) + '<span class="legend-text"><span>' + esc(BASIS[t].desc) + '</span></span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="priority-legend axis-legend">' +
+        '<div class="axis-title">확인 경로 <span>누가 값을 결정해야 하는가</span></div>' +
+        ['P', 'E', 'B'].map(function (t) {
+          return '<div class="legend-row">' + rchip(t) + '<span class="legend-text"><span>' + esc(ROUTE[t].desc) + '</span></span></div>';
+        }).join('') +
+      '</div>'
+    );
+  }
+
+  // ---------- HOME ----------
+  var CASE_TYPE_LABEL = { value: 'Value Case', risk: 'Risk Case' };
+
+  function doneIconSvg() {
+    return (
+      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex:none" aria-hidden="true">' +
+        '<circle cx="7" cy="7" r="7" fill="#4ad991"/>' +
+        '<path d="M4 7.3L6.1 9.4L10.2 4.9" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>'
+    );
+  }
+
+  function ragScopeHtml() {
+    var ids = Object.keys(RAG_SNAPSHOT);
+    return (
+      '<div class="rag-scope"><p class="why-k">RAG 적용 범위</p><ul>' +
+        '<li><b>Dify Workflow 구현</b> — 요구사항 입력 → 법령 Knowledge 검색 → LLM 근거 요약</li>' +
+        '<li><b>Knowledge</b> — 산업안전보건기준에 관한 규칙 중 로봇 관련 제222~224조</li>' +
+        '<li><b>실제 조회 대표 ' + ids.length + '건</b> — ' + ids.map(esc).join(' · ') + ' (사례 카드의 「법령 RAG 예시」 표시)</li>' +
+        '<li><b>배포본은 Snapshot 표시</b> — 공개 페이지는 실제 조회 결과를 저장해 보여주며, 실시간 조회는 개발 환경(로컬 서버)에서 동작</li>' +
+      '</ul></div>'
+    );
+  }
+
+  function ragSampleCount(c) {
+    return c.requirements.filter(function (r) { return RAG_SNAPSHOT[r.id]; }).length;
+  }
+  function ragTag(n) { return '<span class="rag-tag" title="실제 Dify 조회 결과가 저장된 사례">법령 RAG 예시' + (n > 1 ? ' ' + n + '건' : '') + '</span>'; }
+
+  function caseCardHtml(c) {
+    var tags = c.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('');
+    var row1Label = '사례 특징';
+    var row2Label = 'Quality Gate 포인트';
+    return (
+      '<button class="case-card" data-action="open-case" data-case-id="' + c.id + '">' +
+        '<span class="badge-row"><span class="case-type-badge case-type-' + c.case_type + '">' + CASE_TYPE_LABEL[c.case_type] + '</span>' +
+          (ragSampleCount(c) ? ragTag(ragSampleCount(c)) : '') + '</span>' +
+        '<p class="case-title">' + esc(c.title) + '</p>' +
+        '<div class="case-row"><span class="label">' + doneIconSvg() + row1Label + '</span><span class="val">' + esc(c.case_tag) + '</span></div>' +
+        '<div class="case-row"><span class="label">' + doneIconSvg() + row2Label + '</span><span class="val">' + esc(c.core_point) + '</span></div>' +
+        '<div class="case-row"><span class="label">' + doneIconSvg() + '요구사항 관점</span></div>' +
+        '<div class="tag-row">' + tags + '</div>' +
+        '<span class="card-cta">사례 분석 보기 &rarr;</span>' +
+      '</button>'
+    );
+  }
+
+  function renderHome() {
+    var flowSteps = ['Requirement', 'AI Review', 'Evidence & Review Route', 'Human Review', 'Revised Requirement / AC'];
+    var flowHtml = flowSteps.map(function (s, i) {
+      return '<span class="flow-step">' + esc(s) + '</span>' + (i < flowSteps.length - 1 ? '<span class="flow-arrow">&rarr;</span>' : '');
+    }).join('');
+
+    var valueCases = DATA.cases.filter(function (c) { return c.case_type === 'value'; });
+    var riskCases = DATA.cases.filter(function (c) { return c.case_type === 'risk'; });
+
+    app.innerHTML =
+      navHtml('home') +
+      '<div class="hero">' +
+        '<p class="eyebrow">AI Proof of Concept</p>' +
+        '<h1>AI Requirements Quality Gate</h1>' +
+        '<p class="subtitle">복합 시스템 사례를 활용한 요구사항 1차 Review PoC</p>' +
+        '<p class="lede">LLM을 요구사항 1차 Reviewer로 활용해 모호성과 누락 가능성, 확인 질문을 제안하고 최종 판단은 사람이 수행하도록 설계한 PoC입니다.</p>' +
+        '<div class="why-grid">' +
+          '<div class="why-card"><p class="why-k">Problem</p><p>요구사항의 모호한 표현과 누락 조건을 확인하는 과정이 담당자의 경험에 의존해, 검토 기준과 확인 항목을 일관되게 적용하기 어려운 문제에서 시작했습니다.</p></div>' +
+          '<div class="why-card"><p class="why-k">Why Robot?</p><p>로봇은 Sensor · Software · Hardware · Network/IoT · 운영환경이 상호작용하고, 사용 환경에 따라 안전 · 인증 · 법규까지 함께 고려해야 하는 복합 시스템입니다. 여러 관점의 Requirement Review가 필요한 도메인이라 AI 기반 요구사항 검토 방식을 실험할 사례로 선택했습니다.</p></div>' +
+          '<div class="why-card"><p class="why-k">Scope</p><p>이 PoC는 로봇 기술의 정답을 판단하는 도구가 아니라, 요구사항 단계에서 확인할 조건과 의사결정 주체를 구조화하는 Review 방식의 실험입니다.</p></div>' +
+        '</div>' +
+        '<div class="flow">' + flowHtml + '</div>' +
+        ragScopeHtml() +
+        '<p class="principle"><b>Review Principle</b> · AI 제안마다 <code>원문 근거</code> / <code>AI 추론</code>과 <code>Policy</code> / <code>Engineering</code> / <code>Policy + Engineering</code> 확인 경로를 표시합니다. 확정되지 않은 기술값은 <code>[값]</code>으로 남기고 사람이 최종 판단합니다.</p>' +
+        '<p class="matrix-link"><button class="btn btn-primary" data-action="go-cases">Review 사례 보기 &darr;</button> <button class="btn" data-action="go-matrix">추적 매트릭스 &rarr;</button> <button class="btn" data-action="go-eval">AI 제안 검토 &rarr;</button></p>' +
+      '</div>' +
+      '<p class="section-title" id="cases">도입·운영 사례 — Value Case</p>' +
+      '<p class="section-sub">공개된 도입·운영 사례를 가상 Requirement로 전환하고, 구현 전에 추가로 확인해야 할 조건을 검토합니다.</p>' +
+      '<div class="card-grid">' + valueCases.map(caseCardHtml).join('') + '</div>' +
+      '<p class="section-title" style="margin-top:32px">Risk Case</p>' +
+      '<p class="section-sub">공개된 사고 사례를 바탕으로, 요구사항 단계에서 누락될 수 있는 조건과 Review 질문을 검토합니다.</p>' +
+      '<div class="card-grid">' + riskCases.map(caseCardHtml).join('') + '</div>' +
+      roadmapHtml();
+  }
+
+  // ---------- TRACEABILITY MATRIX (all requirements) ----------
+  function renderMatrix() {
+    var totals = { req: 0, mi: 0, er: 0, erDone: 0, ac: 0, warn: 0 };
+    var rows = DATA.cases.map(function (c) {
+      return c.requirements.map(function (r) {
+        var s = reviewStats(r), cov = traceCoverage(r);
+        var warn = cov.acOrphans.length + cov.miNoAc.length + cov.routeGaps.length;
+        totals.req++; totals.mi += (r.missing_items || []).length; totals.er += s.erTotal; totals.erDone += s.erDone;
+        totals.ac += (r.acceptance_criteria || []).length; totals.warn += warn;
+        return (
+          '<tr class="row-link" data-action="open-case" data-case-id="' + c.id + '">' +
+            '<td><span class="cell-item">' + esc(r.id) + '</span><span class="case-type-badge case-type-' + c.case_type + '">' + CASE_TYPE_LABEL[c.case_type] + '</span></td>' +
+            '<td><span class="m-title">&ldquo;' + esc(r.requirement_text) + '&rdquo;</span><br><span class="m-case">' + esc(c.title) + '</span></td>' +
+            '<td class="num">' + (r.missing_items || []).length + '</td>' +
+            '<td class="num">' + s.erDone + ' / ' + s.erTotal + '</td>' +
+            '<td class="num">' + (r.acceptance_criteria || []).length + '</td>' +
+            '<td class="num">' + (s.confirmed ? '<span class="tr-state st-closed">Review 질문 완료</span>' : '<span class="tr-state st-open">Review 미확정 ' + (s.erTotal - s.erDone) + ' · 값 미입력 ' + (s.phTotal - s.phFilled) + '</span>') + '</td>' +
+            '<td class="num">' + (warn ? '<span class="tr-warn">⚠ ' + warn + '</span>' : '<span class="trace-ok">정상</span>') + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+    }).join('');
+
+    app.innerHTML =
+      navHtml('matrix') +
+      '<div class="hero">' +
+        '<p class="eyebrow">Traceability</p>' +
+        '<h1>요구사항 추적 매트릭스</h1>' +
+        '<p class="lede">사례에서 도출한 요구사항 ' + totals.req + '건을 한 화면에서 봅니다. 행을 누르면 해당 사례의 누락 조건 → Policy · Engineering Review → AC 연결을 볼 수 있습니다.</p>' +
+      '</div>' +
+      '<div class="table-wrap"><table class="trace matrix"><thead><tr>' +
+        '<th>ID</th><th>요구사항</th><th class="num">누락 조건</th><th class="num">Review 확정</th><th class="num">AC</th><th class="num">검토 상태</th><th class="num">추적 점검</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="stage-note">합계: 누락 조건 ' + totals.mi + '건 · Policy · Engineering Review ' + totals.erDone + ' / ' + totals.er + ' 확정 · AC ' + totals.ac + '건 · 추적 점검 필요 ' + totals.warn + '건. 추적 점검은 AC 미연결과 확인 경로 · Review 질문 불일치를 함께 셉니다. 항목 간 연결은 AI가 제안한 것이며 검토자가 확인해야 합니다.</p>' +
+      footerNote();
+    window.scrollTo({ top: 0 });
+  }
+
+  function roadmapHtml() {
+    function col(cls, chip, title, items) {
+      return '<div class="roadmap-col"><span class="stage-chip ' + cls + '">' + chip + '</span><h3>' + title + '</h3>' +
+        '<ul>' + items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div>';
+    }
+    return (
+      '<p class="section-title" style="margin-top:32px">구현 범위와 다음 검증</p>' +
+      '<p class="section-sub">PoC에서 동작하는 기능, 실험 단계 기능, 아직 검증하지 않은 항목을 구분합니다.</p>' +
+      '<div class="roadmap">' +
+        col('stage-now', '현재 구현', 'PoC에서 동작하는 범위', [
+          '<b>AI Quality Gate</b><br>모호성 · 누락 조건 · Review 질문 · AC 초안',
+          '<b>Evidence &amp; Review Route</b><br>원문 근거 / AI 추론 · Policy / Engineering 분류',
+          '<b>Human Review</b><br>채택 · 제외 · 제외 사유 · 미정값 관리',
+          '<b>Traceability</b><br>누락 조건 → Review 질문 → AC 연결 점검',
+          '<b>RAG Reference (Dify)</b><br>Workflow 구현 · 대표 ' + Object.keys(RAG_SNAPSHOT).length + '건 조회 결과 저장'
+        ]) +
+        col('stage-next', 'Experimental', '실험 단계', [
+          '<b>제품화 분류</b><br>공통 기능 / 설정 / 고객 특화 분류 프로토타입 — <a href="#" data-action="go-board">분류 보드</a>'
+        ]) +
+        col('stage-future', '향후 검증', 'Next Validation', [
+          '실제 프로젝트 Requirement 적용',
+          'PM · 엔지니어 공동 검토',
+          'Review 시간 · 재확인 횟수 · 변경 건수 측정',
+          '로봇 외 실제 프로젝트 요구사항으로 Review 구조의 적용 가능성 검증'
+        ]) +
+      '</div>' +
+      '<p class="stage-note" style="margin-top:10px">Next Validation — 로봇 외 제조 · 물류 업무 시스템, 헬스케어, Web/App 등 실제 프로젝트 요구사항에 적용해 같은 Review 구조가 유효한지 검증할 필요가 있습니다.</p>'
+    );
+  }
+
+  // ---------- CASE DETAIL ----------
+  function newsBlock(c) {
+    var hasAny = c.news_outlet || c.news_date || c.news_url;
+    var outlet = c.news_outlet ? esc(c.news_outlet) : '<span class="placeholder">(출처 정보 추가 예정)</span>';
+    var date = c.news_date ? esc(c.news_date) : (c.date_label ? esc(c.date_label) : '<span class="placeholder">-</span>');
+    var link = c.news_url
+      ? '<a href="' + escAttr(c.news_url) + '" target="_blank" rel="noopener">원문 기사 보기 &rarr;</a>'
+      : '<span class="val placeholder">(링크 추가 예정)</span>';
+    return (
+      '<div class="meta-item"><span class="label">출처</span><span class="val' + (c.news_outlet ? '' : ' placeholder') + '">' + outlet + '</span></div>' +
+      '<div class="meta-item"><span class="label">일자</span><span class="val' + (c.news_date ? '' : ' placeholder') + '">' + date + '</span></div>' +
+      '<div class="meta-item"><span class="label">원문 링크</span><span class="val">' + link + '</span></div>'
+    );
+  }
+
+  // ---------- REVIEW CLOSURE (human-in-the-loop) ----------
+  // AI output is a set of candidates: the viewer adopts/excludes items, resolves each Engineering
+  // Review question, and enters decided values, which replace the matching [placeholder] in the
+  // revised requirement. Stored per viewer in this browser only (a demo, not shared records).
+  // Uses its own storage key so it never mixes with other versions of this PoC.
+  // If this browser has no saved review yet, an embedded snapshot (the author's actual review,
+  // pasted into #review-snapshot) is used so the evaluation page shows real counts to visitors.
+  var REVIEW_KEY = 'rqg-dify-review-v1';
+  var review = {}, reviewSource = 'empty';
+  var SNAPSHOT = {};
+  try { SNAPSHOT = JSON.parse(document.getElementById('review-snapshot').textContent || '{}') || {}; } catch (e) { SNAPSHOT = {}; }
+  try {
+    var stored = localStorage.getItem(REVIEW_KEY);
+    if (stored) { review = JSON.parse(stored) || {}; reviewSource = 'local'; }
+  } catch (e) { review = {}; }
+  if (reviewSource === 'empty' && Object.keys(SNAPSHOT).length) { review = JSON.parse(JSON.stringify(SNAPSHOT)); reviewSource = 'snapshot'; }
+  function saveReview() { reviewSource = 'local'; try { localStorage.setItem(REVIEW_KEY, JSON.stringify(review)); } catch (e) {} }
+
+  // ---------- evidence basis (AI 판단 근거 + 불확실성) ----------
+  // No numeric "AI confidence %" on purpose: an LLM's self-reported probability is not a product-grade
+  // confidence, so each AI finding is labelled by where it comes from instead.
+  // Two separate axes: where the AI found the item (판단 근거) vs. who must decide it (확인 경로).
+  var BASIS = {
+    S: { label: '원문 근거', desc: '요구사항·사례 원문에 해당 개념이 있으나 기준이 비어 있음' },
+    I: { label: 'AI 추론', desc: '원문에 없음 — AI가 요구사항 완결성 관점에서 추론, 범위 적정성 사람 확인 필요' }
+  };
+  function bchip(t) { return '<span class="bchip b-' + t + '" title="' + escAttr(BASIS[t].desc) + '">' + BASIS[t].label + '</span>'; }
+  var ROUTE = {
+    P: { label: 'Policy Review', desc: '기능 범위, 사용자 역할·권한, 상태 전이, 승인·재개 조건, 업무 예외 등 PM·업무 담당자가 결정해야 하는 항목' },
+    E: { label: 'Engineering Review', desc: '성능 수치, 센서·모델·통신, 안전 동작, 기술 구현 방식 등 엔지니어 검토가 필요한 항목' },
+    B: { label: 'Policy + Engineering', desc: '정책 결정과 기술 검토가 모두 필요한 항목' }
+  };
+  function rchip(t) { return '<span class="rchip r-' + t + '" title="' + escAttr(ROUTE[t].desc) + '">' + ROUTE[t].label + '</span>'; }
+  function erRoute(req, i) { return (req.er_route || [])[i] || 'E'; }
+
+  var EXCLUDE_WHY = [
+    { key: 'dup', label: '중복' },
+    { key: 'scope', label: '요구범위 과도 확장' },
+    { key: 'design', label: '상세설계·시험설계 단계' },
+    { key: 'etc', label: '기타' }
+  ];
+  function whyLabel(k) { var f = EXCLUDE_WHY.filter(function (x) { return x.key === k; })[0]; return f ? f.label : ''; }
+
+  // ---------- product classification (공통 기능 / 설정 / 고객 특화) ----------
+  var PCLASS = { common: '공통 기능', config: '설정값', custom: '고객 특화' };
+  var PCLASS_WHY = {
+    common: '여러 현장에서 같은 동작이 필요 — 제품 표준 기능 후보',
+    config: '동작은 같고 현장마다 값만 다름 — 설정 항목으로 노출',
+    custom: '고객 시스템·현장 구성에 종속 — 프로젝트별 구현'
+  };
+  var GROUP_NAME = {
+    handoff: '사람 개입·승인 요청', failsafe: '통신 이상 감지·페일세이프', stop: '정지·재가동 승인',
+    rbac: '권한 등급·인증', lowconf: 'AI 저신뢰도 보류·안전 처리', state: '작업·주문 상태 전이 관리',
+    proximity: '주변 감지 기반 감속·정지', alloc: '다중 로봇 작업 배정·우선순위', retrain: '인식 실패 데이터 재학습',
+    alert: '이상 알림·통보', override: '안전 규칙 우선 명령 차단'
+  };
+  function pcConfirmed(rid, i) { return review[rid + '|pc|' + i] || ''; }
+
+  var ER_STATUS = [
+    { key: 'open', label: '미확정' },
+    { key: 'review', label: '검토 중' },
+    { key: 'closed', label: '확정' },
+    { key: 'out', label: '범위 제외' }
+  ];
+  var REQ_INDEX = {};
+  DATA.cases.forEach(function (c) {
+    c.requirements.forEach(function (r) { REQ_INDEX[r.id] = { req: r, caseType: c.case_type, caseId: c.id, caseTitle: c.title }; });
+  });
+
+  var GROUP_REQS = {};
+  DATA.cases.forEach(function (c) {
+    c.requirements.forEach(function (r) {
+      (r.product || []).forEach(function (p, i) {
+        if (p.ai === 'common' && p.group) (GROUP_REQS[p.group] = GROUP_REQS[p.group] || []).push({ rid: r.id, idx: i });
+      });
+    });
+  });
+  function groupCount(g) { return (GROUP_REQS[g] || []).length; }
+
+  var PH_RE = /\[[^\]]+\]/g;
+  function placeholders(req) { return String(req.revised_requirement || '').match(PH_RE) || []; }
+  function erStatus(rid, i) { return review[rid + '|er|' + i] || 'open'; }
+  function phValue(rid, i) { return String(review[rid + '|ph|' + i] || '').trim(); }
+  function decision(rid, kind, i) { return review[rid + '|' + kind + '|' + i] || ''; }
+
+  // A [placeholder] tied to an Engineering Review question marked 범위 제외 is N/A: it no longer blocks
+  // the requirement from being confirmed, and its bracket is shown as N/A in the After text.
+  function phNA(req, i) {
+    var link = (req.placeholder_links || [])[i];
+    return typeof link === 'number' && link >= 0 && erStatus(req.id, link) === 'out';
+  }
+
+  function reviewStats(req) {
+    var rid = req.id;
+    var eng = req.engineering_review_required || [];
+    var phs = placeholders(req);
+    var s = { erTotal: eng.length, erDone: 0, phTotal: 0, phFilled: 0, phNA: 0, mi: { adopt: 0, exclude: 0 }, ac: { adopt: 0, exclude: 0 },
+      route: { P: { total: 0, done: 0 }, E: { total: 0, done: 0 } } };
+    eng.forEach(function (_, i) {
+      var st = erStatus(rid, i), rt = s.route[erRoute(req, i)];
+      rt.total++;
+      if (st === 'closed' || st === 'out') { s.erDone++; rt.done++; }
+    });
+    phs.forEach(function (_, i) {
+      if (phNA(req, i)) { s.phNA++; return; }
+      s.phTotal++;
+      if (phValue(rid, i)) s.phFilled++;
+    });
+    (req.missing_items || []).forEach(function (_, i) { var d = decision(rid, 'mi', i); if (d) s.mi[d]++; });
+    (req.acceptance_criteria || []).forEach(function (_, i) { var d = decision(rid, 'ac', i); if (d) s.ac[d]++; });
+    s.confirmed = s.erDone === s.erTotal && s.phFilled === s.phTotal;
+    return s;
+  }
+
+  function renderRevised(req) {
+    var rid = req.id, links = req.placeholder_links || [], i = -1;
+    return esc(req.revised_requirement || '').replace(PH_RE, function (m) {
+      i++;
+      if (phNA(req, i)) return '<span class="ph ph-na" title="' + m.replace(/"/g, '&quot;') + ' — 범위 제외">N/A</span>';
+      var v = phValue(rid, i);
+      if (!v) return '<span class="ph ph-value">' + m + '</span>';
+      var link = links[i];
+      var closed = (typeof link === 'number' && link >= 0) ? erStatus(rid, link) === 'closed' : true;
+      return '<span class="ph ' + (closed ? 'ph-filled' : 'ph-draft') + '" title="' + m.replace(/"/g, '&quot;') + '">' + esc(v) + '</span>';
+    });
+  }
+
+  function afterInner(req) {
+    var s = reviewStats(req);
+    var state = s.confirmed
+      ? '<span class="after-state done">Review 질문 완료</span>'
+      : '<span class="after-state open">미정 ' + (s.phTotal - s.phFilled) + '개</span>';
+    var label = s.confirmed ? 'After (Policy · Engineering Review 반영안)' : 'After (수정된 요구사항)';
+    return '<span class="ba-label">' + label + state + '</span>' + renderRevised(req);
+  }
+
+  function chipHtml(req) {
+    var s = reviewStats(req);
+    return '<span class="req-progress' + (s.confirmed ? ' done' : '') + '" data-chip="' + escAttr(req.id) + '">' +
+      (s.confirmed ? 'Review 질문 완료' : 'Review 질문 ' + s.erDone + '/' + s.erTotal) + '</span>';
+  }
+
+  function barInner(req) {
+    var s = reviewStats(req);
+    return (
+      '<span>Policy 확정 <b>' + s.route.P.done + '/' + s.route.P.total + '</b></span>' +
+      '<span>Engineering 확정 <b>' + s.route.E.done + '/' + s.route.E.total + '</b></span>' +
+      '<span>미정 값 입력 <b>' + s.phFilled + '/' + s.phTotal + '</b></span>' +
+      '<span>누락 조건 채택 <b>' + s.mi.adopt + '</b> · 제외 <b>' + s.mi.exclude + '</b></span>' +
+      '<button class="btn" data-action="review-reset" data-rid="' + escAttr(req.id) + '">검토 초기화</button>'
+    );
+  }
+
+  function idChip(prefix, i) { return '<span class="tr-id">' + prefix + '-' + (i + 1) + '</span>'; }
+
+  // Coverage over the AI-proposed links (indices follow rank order = display order).
+  function traceCoverage(req) {
+    var t = req.traceability || { mi_to_er: [], ac_to_mi: [], ac_to_er: [] };
+    var nMi = (req.missing_items || []).length;
+    var acByMi = [], i;
+    for (i = 0; i < nMi; i++) acByMi.push([]);
+    var acOrphans = [];
+    // Items the reviewer excluded (제외) drop out of the coverage check on both sides.
+    (t.ac_to_mi || []).forEach(function (mis, a) {
+      if (decision(req.id, 'ac', a) === 'exclude') return;
+      if (!mis.length) acOrphans.push(a);
+      mis.forEach(function (m) { if (acByMi[m]) acByMi[m].push(a); });
+    });
+    var miNoAc = [];
+    acByMi.forEach(function (list, m) {
+      if (!list.length && decision(req.id, 'mi', m) !== 'exclude') miNoAc.push(m);
+    });
+    // Route rule: Policy → ≥1 Policy question, Engineering → ≥1 Engineering question, both → one of each.
+    var routeGaps = [];
+    (req.basis || []).forEach(function (b, mi) {
+      if (decision(req.id, 'mi', mi) === 'exclude') return;
+      var have = {};
+      ((t.mi_to_er || [])[mi] || []).forEach(function (ei) { have[erRoute(req, ei)] = true; });
+      var need = b.route === 'B' ? ['P', 'E'] : [b.route];
+      var miss = need.filter(function (x) { return !have[x]; });
+      if (miss.length) routeGaps.push({ mi: mi, miss: miss });
+    });
+    return { acByMi: acByMi, acOrphans: acOrphans, miNoAc: miNoAc, routeGaps: routeGaps };
+  }
+
+  function decideHtml(rid, kind, i) {
+    var d = decision(rid, kind, i);
+    function b(val, text) {
+      return '<button type="button" class="d-' + val + '" aria-pressed="' + (d === val) + '" data-action="decide" data-rid="' + escAttr(rid) +
+        '" data-kind="' + kind + '" data-idx="' + i + '" data-val="' + val + '">' + text + '</button>';
+    }
+    var why = '';
+    if (d === 'exclude') {
+      var cur = review[rid + '|' + kind + '|' + i + '|why'] || '';
+      why = '<select class="why-select' + (cur ? '' : ' unset') + '" data-rid="' + escAttr(rid) + '" data-kind="' + kind + '" data-idx="' + i + '" aria-label="제외 사유">' +
+        '<option value="">제외 사유 선택</option>' +
+        EXCLUDE_WHY.map(function (w) { return '<option value="' + w.key + '"' + (w.key === cur ? ' selected' : '') + '>' + w.label + '</option>'; }).join('') +
+        '</select>';
+    }
+    return '<span class="decide">' + b('adopt', '채택') + b('exclude', '제외') + why + '</span>';
+  }
+
+  // Review-completion gate: stays "미완료" while any human decision on missing items is open.
+  function gateStats(req) {
+    var rid = req.id, s = reviewStats(req);
+    var mis = req.missing_items || [], basis = req.basis || [];
+    // Every AI-proposed missing item needs a human adopt/exclude decision before Review can complete.
+    var miOpen = 0;
+    mis.forEach(function (m, i) { if (!decision(rid, 'mi', i)) miOpen++; });
+    var pcs = req.product || [], pcDone = 0;
+    pcs.forEach(function (_, i) { if (pcConfirmed(rid, i)) pcDone++; });
+    var whyMissing = 0;
+    // Review gate covers missing items (MI) only — AC are follow-up verification drafts.
+    mis.forEach(function (_, i) { if (decision(rid, 'mi', i) === 'exclude' && !review[rid + '|mi|' + i + '|why']) whyMissing++; });
+    var checks = [
+      { ok: miOpen === 0, text: '모든 누락 조건 채택 · 제외', note: miOpen ? '미결정 ' + miOpen + '건' : mis.length + '건 결정' },
+      { ok: s.route.P.done === s.route.P.total, text: 'Policy Review 확정', note: s.route.P.done + '/' + s.route.P.total },
+      { ok: s.route.E.done === s.route.E.total, text: 'Engineering Review 확정', note: s.route.E.done + '/' + s.route.E.total },
+      { ok: s.phFilled === s.phTotal, text: '미정 값 입력', note: s.phFilled + '/' + s.phTotal },
+      { ok: whyMissing === 0, text: '제외한 누락 조건 사유 기록', note: whyMissing ? '사유 없음 ' + whyMissing + '건' : '' }
+    ];
+    return { checks: checks, pass: checks.every(function (c) { return c.ok; }), pcDone: pcDone, pcTotal: pcs.length };
+  }
+
+  function gateInner(req) {
+    var g = gateStats(req);
+    var open = g.checks.filter(function (c) { return !c.ok; }).length;
+    return (
+      '<div class="gate-head"><span>' + (g.pass ? 'Requirement Review 완료 조건 충족' : 'Requirement Review 미완료 — 남은 결정 ' + open + '건') + '</span>' +
+        '<span class="hstate ' + (g.pass ? 'ok' : '') + '">' + (g.pass ? '검토 완료 가능' : '추가 확인 필요') + '</span></div>' +
+      '<ul>' + g.checks.map(function (c) {
+        return '<li class="' + (c.ok ? 'ok' : 'wait') + '"><span class="ck">' + (c.ok ? '✓' : '·') + '</span><span>' + esc(c.text) +
+          (c.note ? ' <span class="more-hint">' + esc(c.note) + '</span>' : '') + '</span></li>';
+      }).join('') + '</ul>' +
+      '<p class="gate-follow">후속 단계 · 제품화 분류 ' + g.pcDone + '/' + g.pcTotal + ' 확정 — Requirement Review와 별개로 진행합니다.</p>'
+    );
+  }
+
+  function patchReview(rid) {
+    var entry = REQ_INDEX[rid];
+    if (!entry) return;
+    var sel = '[data-rid="' + rid + '"]';
+    var after = document.querySelector('.ba-after' + sel);
+    if (after) after.innerHTML = afterInner(entry.req);
+    var bar = document.querySelector('.review-bar' + sel);
+    if (bar) bar.innerHTML = barInner(entry.req);
+    var gate = document.querySelector('.gate' + sel);
+    if (gate) { gate.innerHTML = gateInner(entry.req); gate.classList.toggle('pass', gateStats(entry.req).pass); }
+    var chip = document.querySelector('[data-chip="' + rid + '"]');
+    if (chip) chip.outerHTML = chipHtml(entry.req);
+  }
+
+  function rerenderReview(rid) {
+    var entry = REQ_INDEX[rid];
+    var body = document.querySelector('.req-body[data-rid="' + rid + '"]');
+    if (!entry || !body) return;
+    var prev = body.querySelector('.more-details');
+    var wasOpen = !!(prev && prev.open);
+    body.innerHTML = reqBodyInner(entry.req, entry.caseType);
+    if (wasOpen) { var next = body.querySelector('.more-details'); if (next) next.open = true; }
+    patchReview(rid);
+  }
+
+  function requirementBlockHtml(req, idx, total, caseType) {
+    return (
+      '<details class="req-block"' + (idx === 0 ? ' open' : '') + '>' +
+        '<summary>' +
+          '<span><span class="req-num">REQ ' + (idx + 1) + ' / ' + total + ' &middot; ' + esc(req.id) + '</span>' + chipHtml(req) + (RAG_SNAPSHOT[req.id] ? ragTag(1) : '') +
+          '<p class="req-title">&ldquo;' + esc(req.requirement_text) + '&rdquo;</p></span>' +
+          '<span class="req-caret">&#9656;</span>' +
+        '</summary>' +
+        '<div class="req-body" data-rid="' + escAttr(req.id) + '">' + reqBodyInner(req, caseType) + '</div>' +
+      '</details>'
+    );
+  }
+
+  // ---------- RAG REFERENCE (Dify Workflow via /api/review) ----------
+  // The page never holds the Dify API key: it posts the requirement text to its own server
+  // (server.py), which calls Dify and returns { result }.
+  // Live results are kept in this browser (localStorage) and can be exported; exported real
+  // results can be embedded in #rag-snapshot so static hosting (GitHub Pages) still shows them.
+  var metaEp = document.querySelector('meta[name="rag-endpoint"]');
+  var RAG_ENDPOINT = (metaEp && metaEp.getAttribute('content')) || '/api/review';
+  var RAG_ABSOLUTE = /^https?:\/\//i.test(RAG_ENDPOINT);
+  var STATIC_HOST = /\.github\.io$/i.test(location.hostname);
+  var RAG_LIVE = RAG_ABSOLUTE || (location.protocol !== 'file:' && !STATIC_HOST);
+  var RAG_KEY = 'rqg-dify-rag-v1';
+  var rag = {};   // rid -> live state { status: 'loading' | 'done' | 'error', text, at, msg }
+  var ragSaved = {};
+  try { ragSaved = JSON.parse(localStorage.getItem(RAG_KEY) || '{}') || {}; } catch (e) { ragSaved = {}; }
+  var RAG_SNAPSHOT = {};
+  try { RAG_SNAPSHOT = JSON.parse(document.getElementById('rag-snapshot').textContent || '{}') || {}; } catch (e) { RAG_SNAPSHOT = {}; }
+  function saveRag() { try { localStorage.setItem(RAG_KEY, JSON.stringify(ragSaved)); } catch (e) {} }
+  function savedRag(rid) {
+    if (ragSaved[rid]) return { text: ragSaved[rid].text, at: ragSaved[rid].at, from: 'local' };
+    if (RAG_SNAPSHOT[rid]) return { text: RAG_SNAPSHOT[rid].text, at: RAG_SNAPSHOT[rid].at, from: 'snapshot' };
+    return null;
+  }
+  function ragExport() {
+    var out = {}, k;
+    for (k in RAG_SNAPSHOT) out[k] = RAG_SNAPSHOT[k];
+    for (k in ragSaved) out[k] = ragSaved[k];
+    return out;
+  }
+
+  function parseRagJson(text) {
+    var t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+    if (t.charAt(0) !== '{') return null;
+    try {
+      var o = JSON.parse(t);
+      return (o && (o.source || o.article || o.evidence || o.unresolved)) ? o : null;
+    } catch (e) { return null; }
+  }
+
+  function ragResultHtml(text) {
+    var o = parseRagJson(text);
+    if (o) {
+      function list(a) { return (Array.isArray(a) ? a : (a ? [a] : [])).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join(''); }
+      var arts = Array.isArray(o.article) ? o.article.join(', ') : (o.article || '');
+      return (
+        '<div class="rag-doc"><span class="rag-k">검색 문서</span>' + esc(Array.isArray(o.source) ? o.source.join(', ') : (o.source || '—')) +
+          (arts ? ' · <b>' + esc(arts) + '</b>' : '') + '</div>' +
+        (o.evidence ? '<div class="rag-sec"><span class="rag-k">법령 근거</span><ul class="rag-ok">' + list(o.evidence) + '</ul></div>' : '') +
+        (o.unresolved ? '<div class="rag-sec"><span class="rag-k">문서만으로 확정할 수 없는 사항</span><ul class="rag-warn">' + list(o.unresolved) + '</ul></div>' : '') +
+        (o.review_route ? '<div class="rag-sec"><span class="rag-k">제안 확인 경로</span>' + esc(o.review_route) + '</div>' : '')
+      );
+    }
+    return '<div class="rag-text">' + esc(text) + '</div>';
+  }
+
+  var RAG_NOTE = '법령 해석이나 적용 판단이 아니라 검색된 근거의 요약입니다. 실제 적용 여부와 미확정 값은 Human Review에서 결정합니다.';
+  function savedBlock(sv, lead) {
+    var label = sv.from === 'snapshot' ? '저장된 Dify 조회 결과' : '이 브라우저에 저장된 조회 결과';
+    return (lead ? '<p class="rag-saved-lead">' + lead + '</p>' : '') +
+      '<p class="rag-saved"><span class="rag-badge">' + label + '</span> 조회 ' + esc(sv.at || '-') + '</p>' +
+      ragResultHtml(sv.text) + '<p class="stage-note">' + RAG_NOTE + '</p>';
+  }
+
+  function ragInner(req) {
+    var rid = req.id, r = rag[rid], sv = savedRag(rid);
+    var btn = RAG_LIVE
+      ? '<button class="btn" data-action="rag-query" data-rid="' + escAttr(rid) + '"' + (r && r.status === 'loading' ? ' disabled' : '') + '>' +
+          ((r && r.status === 'done') || sv ? '다시 조회' : '법령 근거 조회') + '</button>'
+      : '';
+    var head =
+      '<div class="rag-head"><h4>RAG Reference · 법령 근거 <span class="rag-src">Dify Workflow</span></h4>' + btn + '</div>' +
+      '<p class="review-note">공개 법령인 <b>산업안전보건기준에 관한 규칙 중 로봇 관련 제222~224조</b>를 Knowledge로 등록하고, 이 요구사항과 관련된 근거를 검색합니다. 결과는 Review에 참고 근거를 더하는 것이며, 요구사항을 결정하지 않습니다. 등록 범위 밖의 내용은 「참고문서에서 확인할 수 없음」으로 표시됩니다.</p>';
+    var body;
+    if (r && r.status === 'loading') body = '<p class="rag-loading" role="status">법령 근거 검색 중...</p>';
+    else if (r && r.status === 'done') body = ragResultHtml(r.text) + '<p class="stage-note">조회 ' + esc(r.at) + ' · ' + RAG_NOTE + '</p>';
+    else if (r && r.status === 'error') {
+      body = '<p class="rag-error" role="alert">법령 근거를 조회하지 못했습니다.' + (r.msg ? ' <span class="more-hint">' + esc(r.msg) + '</span>' : '') + '</p>';
+      if (sv) body += savedBlock(sv, '실시간 조회 대신 이전 조회 결과를 표시합니다.');
+    }
+    else if (sv) body = savedBlock(sv, RAG_LIVE ? '' : '이 페이지에서는 실시간 조회를 하지 않고, 실제 Dify 응답을 저장한 결과를 보여줍니다.');
+    else if (!RAG_LIVE) body = '<p class="empty">저장된 조회 결과가 없습니다. 실시간 조회는 로컬 서버(start.bat)로 실행한 화면에서 할 수 있습니다.</p>';
+    else body = '<p class="empty">아직 조회하지 않았습니다.</p>';
+    return head + body;
+  }
+
+  function patchRag(rid) {
+    var el = document.querySelector('.rag-card[data-rag="' + rid + '"]');
+    var entry = REQ_INDEX[rid];
+    if (el && entry) el.innerHTML = ragInner(entry.req);
+  }
+
+  function runRag(rid) {
+    var entry = REQ_INDEX[rid];
+    if (!RAG_LIVE || !entry || (rag[rid] && rag[rid].status === 'loading')) return;
+    rag[rid] = { status: 'loading' };
+    patchRag(rid);
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 130000);
+    fetch(RAG_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirement: entry.req.requirement_text }),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || typeof data.result !== 'string' || !data.result.trim()) throw new Error(data.error || ('HTTP ' + res.status));
+        return data.result;
+      });
+    }).then(function (text) {
+      var at = new Date().toLocaleString('ko-KR');
+      rag[rid] = { status: 'done', text: text, at: at };
+      ragSaved[rid] = { text: text, at: at };
+      saveRag();
+    }).catch(function (err) {
+      rag[rid] = { status: 'error', msg: err && err.name === 'AbortError' ? '응답 시간 초과' : (err && err.message ? err.message : '') };
+    }).then(function () { clearTimeout(timer); patchRag(rid); });
+  }
+
+  function reqBodyInner(req, caseType) {
+    var rid = req.id;
+    var missing = sortByRank(req.missing_items);
+    var eng = sortByRank(req.engineering_review_required);
+    var ac = sortByRank(req.acceptance_criteria);
+    var phs = placeholders(req);
+    var links = req.placeholder_links || [];
+
+    function missingHtml() {
+      if (!missing.length) return '<p class="empty">해당 없음</p>';
+      var basis = req.basis || [];
+      var cnt = { S: 0, I: 0, P: 0, E: 0, B: 0 };
+      basis.forEach(function (b) { cnt[b.type]++; cnt[b.route]++; });
+      var sum = '<div class="basis-sum"><span class="sum-k">판단 근거</span>' + ['S', 'I'].map(function (t) { return bchip(t) + ' ' + cnt[t] + '건'; }).join('') +
+        '<span class="sum-k">확인 경로</span>' + ['P', 'E', 'B'].filter(function (t) { return cnt[t]; }).map(function (t) { return rchip(t) + ' ' + cnt[t] + '건'; }).join('') + '</div>' +
+        '<div class="criteria"><span><b class="c-adopt">채택</b> 개발 전에 확인해야 할 유효한 누락 조건</span>' +
+        '<span><b class="c-exclude">제외</b> 요구사항 검토 단계에서 불필요하거나 범위를 벗어난 AI 제안</span>' +
+        '<span class="c-note">누가 결정할지는 채택 여부가 아니라 확인 경로로 구분합니다.</span></div>';
+      return sum + '<ul class="review-list">' + missing.map(function (m, i) {
+        var d = decision(rid, 'mi', i);
+        var b = basis[i];
+        var why = review[rid + '|mi|' + i + '|why'];
+        var hs = d === 'adopt' ? '<span class="hstate ok">사람 채택</span>'
+          : d === 'exclude' ? '<span class="hstate no">사람 제외' + (why ? ' · ' + esc(whyLabel(why)) : '') + '</span>'
+          : '<span class="hstate">사람 확인 필요</span>';
+        return '<li class="' + (d === 'exclude' ? 'is-excluded' : '') + '"><span class="item-text"><span>' + idChip('MI', i) + badge(m.priority) + ' [' + esc(m.category) + '] ' + esc(m.item) + '</span>' +
+          (b ? '<span class="why-line">' + bchip(b.type) + '<span><b>판단 근거</b> ' + esc(b.why) + '</span></span>' +
+            '<span class="why-line"><b>확인 경로</b> ' + rchip(b.route) + hs + '</span>' : '') +
+          '</span>' + decideHtml(rid, 'mi', i) + '</li>';
+      }).join('') + '</ul>';
+    }
+
+    function productHtml() {
+      var pcs = req.product || [];
+      if (!pcs.length) return '';
+      var items = pcs.map(function (p, i) {
+        var conf = pcConfirmed(rid, i);
+        var segs = ['common', 'config', 'custom'].map(function (k) {
+          return '<button type="button" class="k-' + k + (p.ai === k ? ' is-ai' : '') + '" aria-pressed="' + (conf === k) + '" data-action="classify" data-rid="' + escAttr(rid) + '" data-idx="' + i + '" data-val="' + k + '">' + PCLASS[k] + '</button>';
+        }).join('');
+        var moved = conf && conf !== p.ai ? '<span class="moved">AI 제안 ' + PCLASS[p.ai] + ' → 사람 ' + PCLASS[conf] + '</span>' : '';
+        var grp = p.group && p.ai === 'common' ? ' · 후보군 「' + esc(GROUP_NAME[p.group]) + '」 ' + groupCount(p.group) + '개 요구사항에서 반복' : '';
+        return '<li class="pc-item"><span class="pc-label">' + esc(p.label) + moved +
+          '<span class="pc-ai"><span class="kchip k-' + p.ai + '-c">AI 제안 · ' + PCLASS[p.ai] + '</span> ' + esc(PCLASS_WHY[p.ai]) + grp + '</span></span>' +
+          '<span class="seg" role="group" aria-label="분류 확정">' + segs + '</span></li>';
+      }).join('');
+      return (
+        '<div class="stage">' +
+          '<p class="stage-num">⑤ 제품화 분류 — 공통 기능 · 설정 · 고객 특화 <span class="exp-tag">Experimental</span></p>' +
+          '<p class="review-note">AI가 요구사항을 제품 표준 기능 후보, 설정값, 고객 특화로 나눠 제안합니다. 검토자가 하나를 눌러 확정하며, AI 표시는 AI 제안 분류입니다. 확정 결과는 <a href="#" data-action="go-board">제품화 분류 보드</a>에 모입니다.</p>' +
+          '<div class="subcard"><ul class="pc-list">' + items + '</ul></div>' +
+        '</div>'
+      );
+    }
+    function phFieldHtml(i) {
+      var na = phNA(req, i);
+      return '<span class="ph ' + (na ? 'ph-na' : 'ph-value') + '">' + esc(phs[i]) + '</span>' +
+        '<input class="ph-input" type="text" data-rid="' + escAttr(rid) + '" data-ph="' + i + '" value="' + escAttr(na ? '' : phValue(rid, i)) + '"' +
+        (na ? ' disabled placeholder="범위 제외 — N/A"' : ' placeholder="결정값 입력"') + ' aria-label="' + escAttr(phs[i]) + ' 결정값">';
+    }
+    function erItemHtml(e, i) {
+      var st = erStatus(rid, i);
+      var opts = ER_STATUS.map(function (o) {
+        return '<option value="' + o.key + '"' + (o.key === st ? ' selected' : '') + '>' + o.label + '</option>';
+      }).join('');
+      var fields = [];
+      links.forEach(function (l, p) { if (l === i) fields.push(phFieldHtml(p)); });
+      return (
+        '<div class="er-item st-' + st + '">' +
+          '<div class="er-head"><span>' + idChip('RV', i) + badge(e.priority) + (e.added ? '<span class="added-tag" title="추적 점검에서 확인 경로에 맞는 질문이 없어 보완한 질문">보완</span>' : '') + ' ' + esc(e.question) + '</span>' +
+            '<select class="er-status st-' + st + '" data-rid="' + escAttr(rid) + '" data-er="' + i + '" aria-label="검토 상태">' + opts + '</select>' +
+          '</div>' +
+          (fields.length ? '<div class="ph-fields">' + fields.join('') + '</div>' : '') +
+        '</div>'
+      );
+    }
+    function reviewHtml(route) {
+      var items = eng.map(function (e, i) { return erRoute(req, i) === route ? erItemHtml(e, i) : ''; }).join('');
+      var extraHtml = '';
+      if (route === 'P') {
+        var extra = [];
+        phs.forEach(function (_, p) { var l = links[p]; if (!(typeof l === 'number' && l >= 0)) extra.push(phFieldHtml(p)); });
+        if (extra.length) extraHtml = '<p class="er-extra-title">질문 외 추가 결정 항목 (범위 · 대상 · 담당자)</p><div class="ph-fields">' + extra.join('') + '</div>';
+      }
+      if (!items && !extraHtml) return '<p class="empty">해당 질문 없음</p>';
+      return items + extraHtml;
+    }
+    function engHtml() {
+      return '<p class="review-note">상태를 정하고 결정값을 입력하면 ③ After에 바로 반영됩니다. 입력 내용은 이 브라우저에만 저장됩니다.<br>' +
+        rchip('B') + ' 항목은 두 역할의 결정이 모두 필요한 누락 조건이며, Review 단계에서는 Policy 질문과 Engineering 질문으로 나누어 확인합니다.</p>' +
+        '<div class="subcard-grid">' +
+          '<div class="subcard route-card r-card-P"><h4>' + rchip('P') + ' PM · 업무 담당자 결정</h4>' + reviewHtml('P') + '</div>' +
+          '<div class="subcard route-card r-card-E"><h4>' + rchip('E') + ' 엔지니어 검토</h4>' + reviewHtml('E') + '</div>' +
+        '</div>';
+    }
+    function ambiguousHtml() {
+      if (!req.ambiguous_terms || !req.ambiguous_terms.length) return '<p class="empty">해당 없음</p>';
+      return '<ul>' + req.ambiguous_terms.map(function (t) {
+        return '<li><b>' + esc(t.term)+ '</b><span class="basis">' + esc(t.issue) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    function acHtml(withButtons) {
+      if (!ac.length) return '<p class="empty">해당 없음</p>';
+      return '<ul class="ac-list">' + ac.map(function (c, i) {
+        var d = decision(rid, 'ac', i);
+        return '<li class="ac-item' + (d === 'exclude' ? ' is-excluded' : '') + '"><span class="item-text">' + idChip('AC', i) + badge(c.priority) + ' ' + esc(c.criterion) + '</span>' +
+          (withButtons ? decideHtml(rid, 'ac', i) : '') + '</li>';
+      }).join('') + '</ul>';
+    }
+
+    // Similar requirements from other cases in this PoC. Shows the other item's actual ER questions and,
+    // if this viewer already confirmed them in this browser, the decided values (reuse of past decisions).
+    function similarHtml() {
+      var sims = (req.similar || []).filter(function (s) { return REQ_INDEX[s.other_id]; });
+      var catChip = req.task_category ? '<span class="tag">업무 분류 · ' + esc(req.task_category) + '</span>' : '';
+      if (!sims.length) {
+        if (!req.task_category) return '';
+        return (
+          '<div class="stage">' +
+            '<p class="stage-num">유사 검토 이력</p>' +
+            '<p class="review-note">' + catChip + '</p>' +
+            '<p class="empty">유사 검토 이력 없음 — 같은 업무 분류에서 답을 참고할 수 있는 Review 질문이 2개 이상 대응되는 사례가 이 PoC 데이터에 없습니다.</p>' +
+          '</div>'
+        );
+      }
+      var cards = sims.map(function (s) {
+        var o = REQ_INDEX[s.other_id], oreq = o.req;
+        var oeng = sortByRank(oreq.engineering_review_required);
+        var oplinks = oreq.placeholder_links || [];
+        var oph = placeholders(oreq);
+        var pairs = s.er_pairs.map(function (pr) {
+          var q = oeng[pr[1]], mine = eng[pr[0]];
+          if (!q || !mine) return '';
+          var st = erStatus(oreq.id, pr[1]);
+          var label = ER_STATUS.filter(function (x) { return x.key === st; })[0].label;
+          var vals = [];
+          oplinks.forEach(function (l, p) { if (l === pr[1] && phValue(oreq.id, p)) vals.push(oph[p] + ' → ' + phValue(oreq.id, p)); });
+          return '<li>' + idChip('RV', pr[0]) + '<span class="sim-arrow">↔</span>' + esc(o.caseTitle) + ' ' + idChip('RV', pr[1]) + esc(q.question) +
+            '<span class="tr-state st-' + st + '">' + label + '</span>' +
+            (vals.length ? '<span class="sim-vals">확정값: ' + esc(vals.join(', ')) + '</span>' : '') + '</li>';
+        }).join('');
+        return (
+          '<div class="sim-card">' +
+            '<div class="sim-head"><span class="sim-topic">공통 결정 항목 · ' + esc(s.topic) + '</span>' +
+              '<button class="btn" data-action="open-case" data-case-id="' + escAttr(o.caseId) + '" data-req-id="' + escAttr(oreq.id) + '">' + esc(o.caseTitle) + ' · ' + esc(oreq.id) + ' 보기 &rarr;</button></div>' +
+            '<p class="sim-req">&ldquo;' + esc(oreq.requirement_text) + '&rdquo;</p>' +
+            (pairs ? '<ul class="sim-pairs">' + pairs + '</ul>' : '') +
+          '</div>'
+        );
+      }).join('');
+      return (
+        '<div class="stage">' +
+          '<p class="stage-num">유사 검토 이력 — 다른 사례에서 이미 검토한 요구사항</p>' +
+          '<p class="review-note">' + catChip + ' 같은 업무 분류에서 공통 결정 항목이 2개 이상인 사례를 최대 2건 표시합니다. 별도 이력 DB가 아닌 PoC 분석 데이터 내 유사 사례입니다.</p>' +
+          cards +
+        '</div>'
+      );
+    }
+
+    function traceHtml() {
+      var t = req.traceability;
+      if (!t || !missing.length) return '';
+      var cov = traceCoverage(req);
+      function erCell(idxs) {
+        if (!idxs.length) return '<span class="tr-warn">— 연결된 Review 없음</span>';
+        return idxs.map(function (ei) {
+          var st = erStatus(rid, ei);
+          var label = ER_STATUS.filter(function (o) { return o.key === st; })[0].label;
+          return '<span class="cell-item" title="' + escAttr(eng[ei].question) + '">' + idChip('RV', ei) + rchip(erRoute(req, ei)) + ' ' + esc(eng[ei].question) +
+            '<span class="tr-state st-' + st + '">' + label + '</span></span>';
+        }).join('');
+      }
+      function acCell(idxs) {
+        if (!idxs.length) return '<span class="tr-warn">⚠ 검증하는 AC 없음</span>';
+        return idxs.map(function (ai) {
+          return '<span class="cell-item' + (decision(rid, 'ac', ai) === 'exclude' ? ' is-excluded' : '') + '">' + idChip('AC', ai) + esc(ac[ai].criterion) + '</span>';
+        }).join('');
+      }
+      var rows = missing.map(function (m, i) {
+        var excluded = decision(rid, 'mi', i) === 'exclude';
+        return '<tr>' +
+          '<td><span class="cell-item' + (excluded ? ' is-excluded' : '') + '">' + idChip('MI', i) + badge(m.priority) + ' ' + esc(m.item) + '</span>' + (req.basis && req.basis[i] ? rchip(req.basis[i].route) : '') + '</td>' +
+          '<td>' + erCell(t.mi_to_er[i] || []) + '</td>' +
+          '<td>' + (excluded ? '<span class="tr-state">제외한 조건 — 점검 대상 아님</span>' : acCell(cov.acByMi[i])) + '</td>' +
+        '</tr>';
+      }).join('');
+      var warns = [];
+      cov.acOrphans.forEach(function (ai) { warns.push('AC-' + (ai + 1) + '은 연결된 누락 조건이 없습니다 — 근거 확인이 필요합니다.'); });
+      cov.miNoAc.forEach(function (mi) { warns.push('MI-' + (mi + 1) + '을 검증하는 AC가 없습니다.'); });
+      cov.routeGaps.forEach(function (g) { warns.push('MI-' + (g.mi + 1) + '의 확인 경로에 맞는 ' + g.miss.map(function (x) { return ROUTE[x].label; }).join(' · ') + ' 질문이 연결되지 않았습니다.'); });
+      var foot = warns.length
+        ? '<div class="trace-warns">추적 확인 필요 ' + warns.length + '건<ul>' + warns.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>'
+        : '<p class="trace-ok">모든 누락 조건이 AC로 검증되고, 확인 경로에 맞는 Review 질문에 연결되어 있습니다.</p>';
+      return (
+        '<div class="stage">' +
+          '<p class="stage-num">Traceability — 누락 조건 → Policy · Engineering Review → AC</p>' +
+          '<div class="table-wrap"><table class="trace"><thead><tr><th>누락 조건</th><th>Policy / Engineering Review</th><th>Acceptance Criteria</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+          foot +
+          '<p class="stage-note">※ 점검 규칙: Policy → Policy 질문 1개 이상, Engineering → Engineering 질문 1개 이상, Policy + Engineering → 양쪽 질문 각 1개 이상. 연결은 AI가 제안한 것이며 검토자가 확인해야 합니다. 「보완」 질문은 이 점검에서 빠진 경로를 채우려고 추가한 질문입니다.</p>' +
+        '</div>'
+      );
+    }
+
+    var stageOneLabel = caseType === 'value' ? '① 도입 사례 기반 가상 요구사항'
+      : caseType === 'risk' ? '① 사고 기반 가상 요구사항'
+      : '① 입력한 요구사항';
+    var stageOneNote = caseType === 'value' ? '※ 실제 도입 사례 사실을 기반으로 작성한 가상 요구사항입니다.'
+      : caseType === 'risk' ? '※ 실제 사고 사실을 기반으로 작성한 가상 요구사항입니다.'
+      : '※ 직접 입력하신 요구사항 문장입니다.';
+
+    return (
+          '<div class="review-bar" data-rid="' + escAttr(rid) + '">' + barInner(req) + '</div>' +
+          '<div class="stage">' +
+            '<p class="stage-num">' + stageOneLabel + '</p>' +
+            '<div class="virtual-req">&ldquo;' + esc(req.requirement_text) + '&rdquo;</div>' +
+            '<p class="stage-note">' + stageOneNote + '</p>' +
+          '</div>' +
+          '<div class="stage">' +
+            '<p class="stage-num">② AI Quality Gate — 누락 조건 · 판단 근거 · 확인 경로</p>' +
+            '<div class="subcard"><h4>누락 조건 — AI 제안과 판단 근거</h4>' + missingHtml() + '</div>' +
+            '<div class="subcard subcard-full rag-card" data-rag="' + escAttr(rid) + '">' + ragInner(req) + '</div>' +
+            '<div class="subcard subcard-full"><h4>Review 질문 — 확인 경로별 검토 · 확정</h4>' + engHtml() + '</div>' +
+          '</div>' +
+          '<div class="stage">' +
+            '<p class="stage-num">③ Before &rarr; After</p>' +
+            '<div class="before-after">' +
+              '<div class="ba-block ba-before"><span class="ba-label">Before (원본)</span>' + esc(req.requirement_text) + '</div>' +
+              '<div class="ba-arrow">&darr;</div>' +
+              '<div class="ba-block ba-after" data-rid="' + escAttr(rid) + '">' + afterInner(req) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="stage">' +
+            '<p class="stage-num">④ Acceptance Criteria (초안)</p>' +
+            acHtml(false) +
+          '</div>' +
+          productHtml() +
+          '<div class="stage">' +
+            '<p class="stage-num">⑥ Human Review &amp; Fallback — Requirement Review 완료 조건</p>' +
+            '<div class="gate' + (gateStats(req).pass ? ' pass' : '') + '" data-rid="' + escAttr(rid) + '">' + gateInner(req) + '</div>' +
+            '<div class="policy"><b>예외 처리 정책</b><ul>' +
+              '<li>AI가 제안한 누락 조건은 사람이 채택 또는 제외해야 하며, 미결정 항목이 남아 있으면 Review를 완료하지 않습니다.</li>' +
+              '<li>제외한 항목은 사유(중복 · 요구범위 과도 확장 · 상세설계·시험설계 단계 · 기타)를 남겨 AI 제안 검토 결과에 사용합니다.</li>' +
+              '<li>Policy · Engineering Review가 확정되기 전까지 결정값은 [값]으로 유지하고, AI가 값을 채우지 않습니다.</li>' +
+              '<li>범위 제외로 닫힌 Review 질문에 연결된 [값]은 N/A로 처리해 확정을 막지 않습니다.</li>' +
+              '<li>AC는 후속 검증 초안으로 Review 완료 조건에 포함하지 않습니다.</li>' +
+            '</ul></div>' +
+          '</div>' +
+          '<details class="more-details">' +
+            '<summary>상세 검토 정보 보기 <span class="more-hint">모호한 표현 · AC 초안 검토 · Traceability · 유사 검토 이력</span></summary>' +
+            '<div class="more-body">' +
+              '<div class="stage"><p class="stage-num">모호한 표현</p><div class="subcard">' + ambiguousHtml() + '</div></div>' +
+              '<div class="stage"><p class="stage-num">AC 초안 개별 검토 — AI 생성 초안 (검토 결과 집계 제외)</p>' + acHtml(true) + '</div>' +
+              traceHtml() +
+              similarHtml() +
+            '</div>' +
+          '</details>'
+    );
+  }
+
+  function renderDetail(caseId) {
+    var c = DATA.cases.filter(function (x) { return x.id === caseId; })[0];
+    if (!c) { renderHome(); return; }
+    var reqsHtml = c.requirements.map(function (r, i) { return requirementBlockHtml(r, i, c.requirements.length, c.case_type); }).join('');
+    var tags = c.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('');
+    var sectionTitle = c.case_type === 'value' ? '도입 사례에서 도출한 가상 요구사항' : '사고에서 도출한 가상 요구사항';
+    var sectionSub = c.case_type === 'value'
+      ? '각 항목을 펼치면 도입 사례 기반 요구사항 → 품질 분석 → 수정안 → Acceptance Criteria까지 전체 흐름을 볼 수 있습니다.'
+      : '각 항목을 펼치면 사고 기반 요구사항 → 품질 분석 → 수정안 → Acceptance Criteria까지 전체 흐름을 볼 수 있습니다.';
+
+    app.innerHTML =
+      navHtml('detail') +
+      '<button class="btn btn-back" data-action="go-home">&larr; 전체 사례로</button>' +
+      '<div class="case-header">' +
+        '<span class="badge-row"><span class="case-type-badge case-type-' + c.case_type + '">' + CASE_TYPE_LABEL[c.case_type] + '</span>' +
+          (ragSampleCount(c) ? ragTag(ragSampleCount(c)) : '') + '</span>' +
+        '<h2>' + esc(c.title) + '</h2>' +
+        '<div class="meta-grid">' + newsBlock(c) + '</div>' +
+        '<div class="summary-box">' + esc(c.summary) + '</div>' +
+        '<div class="tag-row" style="margin-top:12px">' + tags + '</div>' +
+      '</div>' +
+      '<p class="section-title">' + sectionTitle + ' (' + c.requirements.length + '개)</p>' +
+      '<p class="section-sub">' + sectionSub + '</p>' +
+      priorityLegendHtml() +
+      reqsHtml +
+      footerNote();
+
+    window.scrollTo({ top: 0 });
+  }
+
+  // ---------- PRODUCT BOARD (공통 기능 / 설정 / 고객 특화) ----------
+  function allProductItems() {
+    var out = [];
+    DATA.cases.forEach(function (c) {
+      c.requirements.forEach(function (r) {
+        (r.product || []).forEach(function (p, i) {
+          var conf = pcConfirmed(r.id, i);
+          out.push({ rid: r.id, caseId: c.id, idx: i, p: p, conf: conf, eff: conf || p.ai });
+        });
+      });
+    });
+    return out;
+  }
+  function ridLink(it) { return '<span class="rid" data-action="open-case" data-case-id="' + escAttr(it.caseId) + '" data-req-id="' + escAttr(it.rid) + '">' + esc(it.rid) + '</span>'; }
+
+  function renderBoard() {
+    var items = allProductItems();
+    var confirmed = items.filter(function (x) { return x.conf; });
+    var agree = confirmed.filter(function (x) { return x.conf === x.p.ai; }).length;
+    var byRid = {};
+    items.forEach(function (x) { byRid[x.rid + '|' + x.idx] = x; });
+
+    var groups = Object.keys(GROUP_REQS).map(function (g) {
+      var members = GROUP_REQS[g].map(function (m) { return byRid[m.rid + '|' + m.idx]; });
+      var confCommon = members.filter(function (x) { return x.conf === 'common'; }).length;
+      return { g: g, members: members, confCommon: confCommon };
+    }).sort(function (a, b) { return b.members.length - a.members.length || b.confCommon - a.confCommon; });
+    var roadmapCount = groups.filter(function (x) { return x.confCommon >= 2; }).length;
+
+    var groupHtml = groups.map(function (gr) {
+      var cand = gr.confCommon >= 2;
+      return '<div class="grp' + (cand ? ' roadmap-cand' : '') + '">' +
+        '<div class="grp-head"><span class="grp-name">' + esc(GROUP_NAME[gr.g]) + '</span>' +
+          '<span class="grp-count">AI 제안 ' + gr.members.length + '건 · 사람 확정 ' + gr.confCommon + '건</span></div>' +
+        (cand ? '<span class="stage-chip stage-next">제품 표준화 검토 후보</span>' : '') +
+        '<ul>' + gr.members.map(function (x) {
+          var st = !x.conf ? '<span class="moved">미확정</span>'
+            : x.conf === 'common' ? '<span class="moved" style="color:var(--value-ink)">공통 확정</span>'
+            : '<span class="moved">→ ' + PCLASS[x.conf] + '로 변경</span>';
+          return '<li>' + ridLink(x) + esc(x.p.label) + st + '</li>';
+        }).join('') + '</ul></div>';
+    }).join('');
+    var promoted = items.filter(function (x) { return x.conf === 'common' && x.p.ai !== 'common'; });
+    if (promoted.length) {
+      groupHtml += '<div class="grp"><div class="grp-head"><span class="grp-name">사람이 공통 기능으로 재분류</span><span class="grp-count">' + promoted.length + '건</span></div><ul>' +
+        promoted.map(function (x) { return '<li>' + ridLink(x) + esc(x.p.label) + '<span class="moved">AI 제안 ' + PCLASS[x.p.ai] + '</span></li>'; }).join('') + '</ul></div>';
+    }
+
+    function flatCol(kind) {
+      var list = items.filter(function (x) { return x.eff === kind && !(kind === 'common'); });
+      return '<ul class="flat-list">' + list.map(function (x) {
+        var st = x.conf ? (x.conf !== x.p.ai ? '<span class="moved">AI 제안 ' + PCLASS[x.p.ai] + ' → 사람 확정</span>' : '<span class="moved" style="color:var(--value-ink)">확정</span>') : '<span class="moved">AI 제안</span>';
+        return '<li>' + ridLink(x) + esc(x.p.label) + st + '</li>';
+      }).join('') + '</ul>';
+    }
+
+    app.innerHTML =
+      navHtml('board') +
+      '<button class="btn btn-back" data-action="go-home">&larr; 홈으로</button>' +
+      '<div class="hero">' +
+        '<p class="eyebrow">Productization · Experimental</p>' +
+        '<h1>제품화 분류 보드</h1>' +
+        '<p class="lede">프로젝트별 요구를 공통 기능 · 설정 · 고객 특화로 나누고, 여러 사례에서 반복되는 공통 기능을 제품 표준화 검토 후보로 모읍니다.</p>' +
+      '</div>' +
+      '<div class="kpis">' +
+        kpi('분류 요소', items.length, '요구사항 ' + Object.keys(REQ_INDEX).length + '건에서 AI가 분리') +
+        kpi('사람 확정', confirmed.length, '미확정 ' + (items.length - confirmed.length) + '건') +
+        kpi('AI 분류 유지율', confirmed.length ? Math.round(agree / confirmed.length * 100) + '%' : '—', confirmed.length ? '사람 확정 ' + confirmed.length + '건 중 AI 제안 유지 ' + agree + '건' : '확정 후 집계') +
+        kpi('제품 표준화 검토 후보', roadmapCount, '공통 확정 2건 이상인 후보군') +
+      '</div>' +
+      '<div class="board">' +
+        '<div class="board-col"><span class="kchip k-common-c">공통 기능 후보</span><h3>같은 동작이 여러 요구사항에서 반복</h3>' + groupHtml + '</div>' +
+        '<div class="board-col"><span class="kchip k-config-c">설정값</span><h3>기능은 공통, 값만 현장별</h3>' + flatCol('config') + '</div>' +
+        '<div class="board-col"><span class="kchip k-custom-c">고객 특화</span><h3>고객 시스템·현장에 종속</h3>' + flatCol('custom') + '</div>' +
+      '</div>' +
+      '<p class="stage-note">분류는 AI 제안이며, 요구사항 상세 화면 ⑤에서 검토자가 확정합니다. 제품 표준화 검토 후보는 같은 후보군에서 사람이 공통 기능으로 확정한 요구사항이 2건 이상일 때 표시합니다. PoC 사례 내 반복 여부를 기준으로 한 후보이며, 실제 제품 로드맵 반영에는 고객 빈도 · 가치 · 개발비 검토가 필요합니다.</p>' +
+      footerNote();
+    window.scrollTo({ top: 0 });
+  }
+
+  function kpi(label, val, sub) {
+    return '<div class="kpi"><div class="k-label">' + esc(label) + '</div><div class="k-val">' + esc(String(val)) + '</div><div class="k-sub">' + esc(sub) + '</div></div>';
+  }
+
+  // ---------- AI RESULT EVALUATION ----------
+  // Evaluation scope: AI-proposed missing items (누락 조건) only. AC are AI drafts verified separately.
+  function evalData() {
+    var e = { total: 0, decided: 0, adopt: 0, exclude: 0, reqTouched: 0, reqFull: 0, reqTotal: 0,
+      basis: { S: { a: 0, x: 0, n: 0 }, I: { a: 0, x: 0, n: 0 } },
+      route: { P: { a: 0, x: 0, n: 0 }, E: { a: 0, x: 0, n: 0 }, B: { a: 0, x: 0, n: 0 } },
+      prio: { P0: { a: 0, x: 0, n: 0 }, P1: { a: 0, x: 0, n: 0 } },
+      why: { dup: 0, scope: 0, design: 0, etc: 0, none: 0 }, whyByBasis: {} };
+    DATA.cases.forEach(function (c) {
+      c.requirements.forEach(function (r) {
+        e.reqTotal++;
+        var touched = false, all = true;
+        (r.missing_items || []).forEach(function (it, i) {
+          e.total++;
+          var pr = e.prio[it.priority] || (e.prio[it.priority] = { a: 0, x: 0, n: 0 });
+          pr.n++;
+          var bs = r.basis && r.basis[i] ? r.basis[i] : null;
+          if (bs) { e.basis[bs.type].n++; e.route[bs.route].n++; }
+          var d = decision(r.id, 'mi', i);
+          if (!d) { all = false; return; }
+          touched = true; e.decided++;
+          var f = d === 'adopt' ? 'a' : 'x';
+          e[d]++; pr[f]++;
+          if (bs) { e.basis[bs.type][f]++; e.route[bs.route][f]++; }
+          if (d === 'exclude') {
+            var w = review[r.id + '|mi|' + i + '|why'] || 'none';
+            e.why[w]++;
+            if (bs) { e.whyByBasis[bs.type] = e.whyByBasis[bs.type] || {}; e.whyByBasis[bs.type][w] = (e.whyByBasis[bs.type][w] || 0) + 1; }
+          }
+        });
+        if (touched) e.reqTouched++;
+        if (touched && all) e.reqFull++;
+      });
+    });
+    return e;
+  }
+
+  function pct(a, n) { return n ? Math.round(a / n * 100) + '%' : '—'; }
+
+  function stackRow(label, o) {
+    var n = o.a + o.x;
+    var wa = n ? o.a / n * 100 : 0, wx = n ? o.x / n * 100 : 0;
+    return '<div class="bar-row"><span>' + label + '</span>' +
+      '<span class="bar-track" role="img" aria-label="채택 ' + o.a + ', 제외 ' + o.x + '"><span class="bar-fill f-adopt" style="width:' + wa + '%"></span><span class="bar-fill f-exclude" style="width:' + wx + '%"></span></span>' +
+      '<span class="bar-num">' + (n ? '채택 ' + pct(o.a, n) : '미검토') + '</span></div>';
+  }
+
+  function renderEval() {
+    var e = evalData();
+    var sourceNote = reviewSource === 'snapshot' ? '작성자가 직접 검토한 결과(내장 스냅샷)를 집계했습니다.'
+      : reviewSource === 'local' ? '이 브라우저에서 입력한 검토 결과를 집계했습니다.'
+      : '아직 검토 결과가 없습니다.';
+
+    var body;
+    var legend = '<div class="legend-inline"><span><i style="background:var(--value)"></i>채택</span><span><i style="background:#f97066"></i>제외</span></div>';
+    if (!e.decided) {
+      body = '<div class="empty-state">요구사항 상세 화면에서 AI가 제안한 누락 조건을 채택 또는 제외하면 이 화면에 채택률, 제외 사유, 판단 근거 · 확인 경로별 채택률이 집계됩니다. 수치는 사람이 실제로 검토한 결과만 사용하며 예시값을 넣지 않습니다.</div>';
+    } else {
+      var whyMax = Math.max.apply(null, Object.keys(e.why).map(function (k) { return e.why[k]; }).concat([1]));
+      var whyRows = EXCLUDE_WHY.concat([{ key: 'none', label: '사유 미기록' }]).map(function (w) {
+        var v = e.why[w.key];
+        if (w.key === 'none' && !v) return '';
+        return '<div class="bar-row"><span>' + w.label + '</span><span class="bar-track"><span class="bar-fill f-main" style="width:' + (v / whyMax * 100) + '%"></span></span><span class="bar-num">' + v + '건 · ' + pct(v, e.exclude) + '</span></div>';
+      }).join('');
+      var bi = e.basis.I, bs = e.basis.S, nI = bi.a + bi.x, nS = bs.a + bs.x;
+      var iWhy = e.whyByBasis.I || {};
+      var iWhyTxt = EXCLUDE_WHY.concat([{ key: 'none', label: '사유 미기록' }]).filter(function (w) { return iWhy[w.key]; })
+        .map(function (w) { return w.label + ' ' + iWhy[w.key] + '건'; }).join(' · ');
+      var focus =
+        '<div class="panel focus"><p class="eyebrow" style="margin:0 0 6px">핵심 질문</p>' +
+          '<h3 class="focus-q">AI가 원문에 없던 누락 조건을 추론했을 때, 사람이 얼마나 유효하다고 판단했는가?</h3>' +
+          (nI ? (
+            '<div class="focus-grid">' +
+              '<div><div class="focus-big">' + pct(bi.a, nI) + '</div><div class="k-sub">' + bchip('I') + ' 유효 판단(채택) ' + bi.a + ' / 검토 ' + nI + '건</div></div>' +
+              '<div><div class="focus-big muted">' + pct(bi.x, nI) + '</div><div class="k-sub">제외 ' + bi.x + '건' + (iWhyTxt ? ' — ' + esc(iWhyTxt) : '') + '</div></div>' +
+              '<div class="focus-cmp"><div class="k-sub">비교</div>' +
+                '<div>' + bchip('S') + ' 채택 ' + pct(bs.a, nS) + ' <span class="k-sub">(' + bs.a + ' / ' + nS + '건)</span></div></div>' +
+            '</div>' +
+            '<p class="stage-note">AI 추론 항목 ' + bi.n + '건 중 ' + nI + '건을 검토했습니다. 판단 근거별 채택률 차이는 추론 항목의 범위와 표현을 조정하기 위한 검토 신호로 활용합니다.</p>'
+          ) : '<div class="empty-state">AI 추론 항목을 아직 검토하지 않았습니다.</div>') +
+        '</div>';
+      var adoptRoute = ['P', 'E', 'B'].map(function (t) {
+        var r = e.route[t];
+        return '<div class="route-tile">' + rchip(t) + '<div class="route-num">' + r.a + '<span>건</span></div><div class="k-sub">채택 ' + e.adopt + '건 중 ' + pct(r.a, e.adopt) + '</div></div>';
+      }).join('');
+      body = focus +
+        '<div class="panel"><h3>채택한 누락 조건의 확인 경로</h3>' +
+          '<p class="section-sub">유효하다고 채택한 AI 제안을 누가 결정해야 하는지로 나눕니다. 엔지니어에게 넘길 항목과 PM · 업무 담당자가 정해야 할 항목을 구분하는 것이 목적입니다.</p>' +
+          '<div class="route-tiles">' + adoptRoute + '</div><p class="stage-note">채택 ' + e.adopt + '건 기준</p></div>' +
+        '<div class="panel"><h3>판단 근거별 채택률</h3>' +
+          '<p class="section-sub">판단 근거 유형에 따라 사람의 채택 · 제외 결과가 어떻게 달랐는지 확인합니다.</p>' + legend +
+          stackRow(bchip('S'), bs) + stackRow(bchip('I'), bi) +
+          '<p class="stage-note">원문 근거 ' + nS + '/' + bs.n + '건 검토 · AI 추론 ' + nI + '/' + bi.n + '건 검토</p></div>' +
+        '<div class="panel"><h3>제외 사유</h3><p class="section-sub">제외한 AI 제안 ' + e.exclude + '건의 사유 분포입니다. 제외는 요구사항 검토 단계에서 불필요하거나 범위를 벗어난 제안에만 사용합니다.</p>' + whyRows + '</div>' +
+        '<div class="panel"><h3>우선순위별 채택률</h3>' + legend +
+          stackRow(badge('P0'), e.prio.P0) + stackRow(badge('P1'), e.prio.P1) +
+        '</div>';
+    }
+
+    var ruleCands = [
+      { key: 'dup', rule: '같은 결정 대상을 묻는 항목은 하나로 병합하도록 출력 규칙에 중복 제거 단계 추가' },
+      { key: 'scope', rule: '원문 근거가 없는 추론 항목은 요구사항당 개수를 제한하고 AI 추론으로 명시' },
+      { key: 'design', rule: '구현 방식·시험 시나리오 수준의 항목은 요구사항 단계에서 빼고 상세설계·시험설계 백로그로 이관' }
+    ];
+    var dyn = ruleCands.filter(function (r) { return e.why[r.key] > 0; }).map(function (r) {
+      return '<li>' + esc(r.rule) + '<span class="from">근거: 제외 사유 「' + whyLabel(r.key) + '」 ' + e.why[r.key] + '건</span></li>';
+    }).join('');
+
+    app.innerHTML =
+      navHtml('eval') +
+      '<div class="hero">' +
+        '<p class="eyebrow">Review Result</p>' +
+        '<h1>AI 제안 검토 결과</h1>' +
+        '<p class="lede">AI가 제안한 누락 조건을 사람이 채택 · 제외한 결과를 정리하고, 제외 패턴에서 출력 규칙 개선점을 찾습니다. AI 성능 평가가 아닌 사람의 검토 기록입니다. ' + esc(sourceNote) + '</p>' +
+        '<p class="matrix-link"><button class="btn btn-primary" data-action="snap-copy">검토 결과 복사</button> ' +
+          '<button class="btn" data-action="snap-goto">내보내기 · 가져오기로 이동 &darr;</button> <span class="snap-msg" id="snap-msg-top"></span></p>' +
+      '</div>' +
+      '<div class="kpis">' +
+        kpi('전체 AI 누락 조건 제안', e.total, '요구사항 ' + e.reqTotal + '건 × 5건') +
+        kpi('실제 검토 항목', e.decided, '채택률 · 제외율의 분모') +
+        kpi('채택', e.adopt, e.decided ? '실제 검토 항목 대비 ' + pct(e.adopt, e.decided) : '검토 후 집계') +
+        kpi('제외', e.exclude, e.decided ? '실제 검토 항목 대비 ' + pct(e.exclude, e.decided) : '검토 후 집계') +
+      '</div>' +
+      '<p class="scope-line"><b>검토 범위: 대표 요구사항의 AI 누락 조건 제안</b> · 대표 요구사항 ' + e.reqTouched + '/' + e.reqTotal + '건을 사람이 검토' +
+        (e.reqFull ? ' (그중 누락 조건 전체를 판단한 요구사항 ' + e.reqFull + '건)' : '') +
+        ' · 비율은 실제 검토 항목 기준입니다. Acceptance Criteria는 AI가 생성한 초안으로, 최종 검증은 별도로 하며 이 집계에 넣지 않습니다.</p>' +
+      body +
+      '<div class="panel"><h3>출력 규칙 개선</h3>' +
+        '<p class="section-sub">초기 파이프라인 결과를 검토하며 이미 반영한 규칙과, 제외 사유에서 도출되는 다음 개선 후보입니다.</p>' +
+        '<ul class="rule-list">' +
+          '<li>누락 조건 · Review 질문 · AC에 P0/P1 우선순위를 붙이고 항목당 최대 출력 개수 제한<span class="from">반영 완료 — 초기 출력이 너무 길어 검토에 쓰기 어려웠음</span></li>' +
+          '<li>Review 항목을 단정형 서술 대신 질문형으로 출력<span class="from">반영 완료 — PM · 업무 담당자 또는 엔지니어가 답해야 할 결정 항목으로 읽히도록</span></li>' +
+          '<li>확정되지 않은 기술 수치는 생성하지 않고 [값]으로 남김<span class="from">반영 완료 — AI가 임의 수치를 만들지 않도록</span></li>' +
+          (dyn || '<li style="color:var(--ink-dim)">제외 사유가 기록되면 사유별 개선 후보가 여기에 추가됩니다.</li>') +
+        '</ul>' +
+      '</div>' +
+      '<div class="panel snap"><h3>법령 근거 조회 결과 내보내기</h3>' +
+        '<p class="section-sub">실시간으로 조회한 Dify 결과는 이 브라우저에 저장됩니다. 복사한 내용을 페이지의 저장 결과(rag-snapshot)로 넣으면 GitHub Pages처럼 서버 없이 여는 화면에서도 실제 조회 결과를 보여줄 수 있습니다. 저장된 결과 ' + Object.keys(ragExport()).length + '건</p>' +
+        '<textarea id="rag-text" spellcheck="false" readonly aria-label="법령 근거 조회 결과 JSON">' + esc(JSON.stringify(ragExport())) + '</textarea>' +
+        '<div class="row"><button class="btn" data-action="rag-copy">복사</button><span class="snap-msg" id="rag-msg"></span></div>' +
+      '</div>' +
+      '<div class="panel snap"><h3>검토 결과 내보내기 · 가져오기</h3>' +
+        '<p class="section-sub">검토 결과는 이 브라우저에만 저장됩니다. 아래 내용을 복사해 두면 다른 브라우저에서 가져오거나, 페이지에 스냅샷으로 넣어 방문자에게 같은 집계를 보여줄 수 있습니다.</p>' +
+        '<textarea id="snap-text" spellcheck="false" aria-label="검토 결과 JSON">' + esc(JSON.stringify(review)) + '</textarea>' +
+        '<div class="row"><button class="btn" data-action="snap-copy">복사</button><button class="btn" data-action="snap-import">붙여넣은 내용 가져오기</button>' +
+          '<button class="btn" data-action="snap-clear">전체 검토 초기화</button><span class="snap-msg" id="snap-msg"></span></div>' +
+      '</div>' +
+      footerNote();
+    window.scrollTo({ top: 0 });
+  }
+
+  function footerNote() {
+    return (
+      '<footer class="page-note">법령 근거는 산업안전보건기준에 관한 규칙 중 로봇 관련 제222~224조를 Knowledge로 등록한 Dify Workflow에서 검색합니다. 개발 환경에서는 브라우저가 API Key 없이 로컬 서버(/api/review)를 거쳐 Workflow를 호출하도록 구성했고, 배포본은 대표 요구사항의 실제 조회 결과를 저장해 표시합니다. 요구사항 품질 분석은 LLM 기반 4단계 파이프라인(모호성 탐지 → 누락 조건 탐지 → 수정안 생성 → Acceptance Criteria 생성)으로 생성했습니다. 업무 분류, 항목 간 연결, 판단 근거 · 확인 경로, 공통 기능 · 설정 · 고객 특화 분류는 LLM이 1차 제안하고 검토·보정했으며, 모든 결과는 사람이 검토·확정하도록 설계했습니다. 확정되지 않은 기술 수치는 <code class="mono">[값]</code>으로 남기고 임의로 지어내지 않으며, LLM이 내놓는 임의 확률(%)은 신뢰도로 쓰지 않습니다. 검토 상태·결정값·채택 여부는 서버에 저장되지 않고 이 브라우저에만 남습니다.</footer>'
+    );
+  }
+
+  // ---------- router ----------
+  function render() {
+    if (state.view === 'home') renderHome();
+    else if (state.view === 'detail') renderDetail(state.caseId);
+    else if (state.view === 'matrix') renderMatrix();
+    else if (state.view === 'board') renderBoard();
+    else if (state.view === 'eval') renderEval();
+  }
+
+  document.addEventListener('click', function (ev) {
+    var el = ev.target.closest('[data-action]');
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+    if (action === 'go-home') { state = { view: 'home', caseId: null }; render(); window.scrollTo({ top: 0 }); }
+    else if (action === 'go-matrix') { state = { view: 'matrix', caseId: null }; render(); }
+    else if (action === 'go-board') { ev.preventDefault(); state = { view: 'board', caseId: null }; render(); }
+    else if (action === 'rag-query') { runRag(el.getAttribute('data-rid')); }
+    else if (action === 'go-cases') { var ct = document.getElementById('cases'); if (ct) ct.scrollIntoView({ behavior: 'smooth' }); }
+    else if (action === 'go-eval') { state = { view: 'eval', caseId: null }; render(); }
+    else if (action === 'classify') {
+      var ck = el.getAttribute('data-rid') + '|pc|' + el.getAttribute('data-idx');
+      var cv = el.getAttribute('data-val');
+      if (review[ck] === cv) delete review[ck]; else review[ck] = cv;
+      saveReview(); rerenderReview(el.getAttribute('data-rid'));
+    }
+    else if (action === 'rag-copy') {
+      var rt = document.getElementById('rag-text'); rt.select();
+      var rm = document.getElementById('rag-msg');
+      try {
+        if (navigator.clipboard) navigator.clipboard.writeText(rt.value).then(function () { rm.textContent = '복사했습니다.'; }, function () { document.execCommand('copy'); rm.textContent = '복사했습니다.'; });
+        else { document.execCommand('copy'); rm.textContent = '복사했습니다.'; }
+      } catch (e) { rm.textContent = '선택된 내용을 직접 복사하세요.'; }
+    }
+    else if (action === 'snap-copy') {
+      var ta = document.getElementById('snap-text'); ta.select();
+      var msg = el.closest('.snap') ? document.getElementById('snap-msg') : document.getElementById('snap-msg-top');
+      try {
+        if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(function () { msg.textContent = '복사했습니다.'; }, function () { document.execCommand('copy'); msg.textContent = '복사했습니다.'; });
+        else { document.execCommand('copy'); msg.textContent = '복사했습니다.'; }
+      } catch (e) { msg.textContent = '선택된 내용을 직접 복사하세요.'; }
+    }
+    else if (action === 'snap-goto') {
+      var sp = document.querySelector('.panel.snap'); if (sp) sp.scrollIntoView({ behavior: 'smooth' });
+    }
+    else if (action === 'snap-import') {
+      var msg2 = document.getElementById('snap-msg');
+      try {
+        var obj = JSON.parse(document.getElementById('snap-text').value || '{}');
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('bad');
+        review = obj; saveReview(); renderEval();
+        document.getElementById('snap-msg').textContent = '가져왔습니다.';
+      } catch (e) { msg2.style.color = 'var(--critical)'; msg2.textContent = 'JSON 형식이 올바르지 않습니다.'; }
+    }
+    else if (action === 'snap-clear') {
+      if (el.getAttribute('data-armed') !== '1') {
+        el.setAttribute('data-armed', '1'); el.textContent = '한 번 더 누르면 모든 검토가 지워집니다';
+        return;
+      }
+      review = {}; saveReview(); renderEval();
+      document.getElementById('snap-msg').textContent = '초기화했습니다.';
+    }
+    else if (action === 'open-case') {
+      state = { view: 'detail', caseId: el.getAttribute('data-case-id') }; render();
+      var focusId = el.getAttribute('data-req-id');
+      var target = focusId && document.querySelector('.req-body[data-rid="' + focusId + '"]');
+      if (target) {
+        target.parentNode.open = true;
+        target.parentNode.scrollIntoView();
+      }
+    }
+    else if (action === 'decide') {
+      var key = el.getAttribute('data-rid') + '|' + el.getAttribute('data-kind') + '|' + el.getAttribute('data-idx');
+      var val = el.getAttribute('data-val');
+      if (review[key] === val) delete review[key]; else review[key] = val;
+      if (review[key] !== 'exclude') delete review[key + '|why'];
+      saveReview(); rerenderReview(el.getAttribute('data-rid'));
+    }
+    else if (action === 'review-reset') {
+      var rid = el.getAttribute('data-rid');
+      Object.keys(review).forEach(function (k) { if (k.indexOf(rid + '|') === 0) delete review[k]; });
+      saveReview(); rerenderReview(rid);
+    }
+  });
+
+  document.addEventListener('change', function (ev) {
+    var el = ev.target;
+    if (el.classList && el.classList.contains('why-select')) {
+      var wk = el.getAttribute('data-rid') + '|' + el.getAttribute('data-kind') + '|' + el.getAttribute('data-idx') + '|why';
+      if (el.value) review[wk] = el.value; else delete review[wk];
+      saveReview(); rerenderReview(el.getAttribute('data-rid'));
+      return;
+    }
+    if (!el.classList || !el.classList.contains('er-status')) return;
+    var rid = el.getAttribute('data-rid');
+    review[rid + '|er|' + el.getAttribute('data-er')] = el.value;
+    saveReview(); rerenderReview(rid);
+  });
+
+  document.addEventListener('input', function (ev) {
+    var el = ev.target;
+    if (!el.classList || !el.classList.contains('ph-input')) return;
+    var rid = el.getAttribute('data-rid');
+    var key = rid + '|ph|' + el.getAttribute('data-ph');
+    if (el.value.trim()) review[key] = el.value; else delete review[key];
+    saveReview(); patchReview(rid);
+  });
+
+  render();
+})();
+</script>
